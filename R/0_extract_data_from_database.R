@@ -1,6 +1,9 @@
-#========================================================================================================================
-# Merge data from REPH, PESA and SESA
-#========================================================================================================================
+#==============================================================================================================
+# Data and code from ""
+# Contributor: Johannes Krietsch
+# ❗This script is provided as reference only. It contains links to the internal database of the Max Planck 
+# Institute for Ornithology, from which it pulls the data and exports all the collected data to ./DATA
+#==============================================================================================================
 
 sapply( c('data.table', 'sdb', 'magrittr', 'ggplot2', 'DBI'),
         require, character.only = TRUE)
