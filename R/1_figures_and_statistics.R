@@ -16,7 +16,7 @@
 #==============================================================================================================
 
 sapply( c('data.table', 'magrittr', 'ggplot2', 'knitr', 'glmmTMB', 'effects', 'broomExtra',
-          'flextable', 'officer'),
+          'flextable', 'officer', 'DHARMa'),
         require, character.only = TRUE)
 
 # load data
@@ -37,6 +37,10 @@ d[, diff_caught_bled := difftime(bled_time, caught_time, units = 'mins') %>% as.
 # data as Julian
 d[, date_doy := yday(caught_time)]
 
+# year as character
+d[, year_ := as.character(year_)]
+
+d[, .N, by = year_]
 
 #--------------------------------------------------------------------------------------------------------------
 # Between species comparison
@@ -48,7 +52,7 @@ ds = d[is.na(GnRH)]
 # model for males
 dx = ds[sex_observed == 'M']
 
-m <- glmmTMB(testo_log ~ species + volume + date_doy,
+m <- glmmTMB(testo_log ~ species + volume + date_doy + year_,
              family = gaussian(link = "identity"), 
              data = dx,
              control = glmmTMBControl(parallel = 15)
@@ -58,18 +62,59 @@ m <- glmmTMB(testo_log ~ species + volume + date_doy,
 plot(allEffects(m))
 summary(m)
 
+res <-simulateResiduals(m, plot = T)
+testDispersion(res) 
 
 
+m <- glmmTMB(testo_log ~ species + volume + date_doy + (1 | year_),
+             family = gaussian(link = "identity"), 
+             data = dx,
+             control = glmmTMBControl(parallel = 15)
+)
 
 
+plot(allEffects(m))
+summary(m)
+
+res <-simulateResiduals(m, plot = T)
+testDispersion(res) 
+
+# model for females
+dx = ds[sex_observed == 'F']
+
+m <- glmmTMB(testo_log ~ species + volume + date_doy + year_,
+             family = gaussian(link = "identity"), 
+             data = dx,
+             control = glmmTMBControl(parallel = 15)
+)
 
 
+plot(allEffects(m))
+summary(m)
+
+res <-simulateResiduals(m, plot = T)
+testDispersion(res) 
 
 
+m <- glmmTMB(testo_log ~ species + volume + date_doy + (1 | year_),
+             family = gaussian(link = "identity"), 
+             data = dx,
+             control = glmmTMBControl(parallel = 15)
+)
 
 
+plot(allEffects(m))
+summary(m)
+
+res <-simulateResiduals(m, plot = T)
+testDispersion(res) 
 
 
+# To do:
+
+# plot and statistic for comparison between species 
+
+# plot and statistic for comparison with GnRH
 
 
 
