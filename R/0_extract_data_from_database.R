@@ -29,7 +29,7 @@ dc[, date_ := as.Date(caught_time)]
 
 dc = merge(dc[, !c('GnRH'), with = FALSE], dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
 
-dR = dc[!is.na(T), .(species = 'REPH', ID, date_, caught_time, bled_time, sex_observed = sex_observed, sex_genetic = sex, 
+dR = dc[!is.na(T), .(species = 'REPH', ID, date_, caught_time, bled_time, sex = sex, 
                      testo = T, volume, GnRH)]
 
 #-------------------------------------------------------------------------------------------------------------------------
@@ -61,7 +61,7 @@ dc[, date_ := as.Date(caught_time)]
 dc = merge(dc, dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
 
 dP = dc[!is.na(T), .(species = 'PESA', ID, date_, caught_time = caught_date_time, bled_time = bled_date_time, 
-                     sex_observed = sex_observed, sex_genetic = sex_genetic, testo = T, volume, GnRH)]
+                     sex = sex_genetic, testo = T, volume, GnRH)]
 
 #-------------------------------------------------------------------------------------------------------------------------
 # SESA data
@@ -98,11 +98,7 @@ dc[sex == 2, sex_genetic := 'F']
 dc = merge(dc, dt[, .(ID, date_, GnRH = NA, volume = NA, testo)], by = c('ID', 'date_'), all.x = TRUE)
 
 dS = dc[!is.na(testo), .(species = 'SESA', ID, date_, caught_time = caught_date_time, bled_time = bled_date_time, 
-                         sex_observed = sex_observed, sex_genetic = sex_genetic, testo, volume = NA, GnRH = NA)]
-
-# sex missing for most birds?
-dS[, .N, sex_observed]
-dS[, .N, sex_genetic]
+                         sex = sex_genetic, testo, volume = NA, GnRH = NA)]
 
 #-------------------------------------------------------------------------------------------------------------------------
 # merge species

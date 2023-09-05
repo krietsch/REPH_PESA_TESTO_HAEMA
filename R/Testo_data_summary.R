@@ -34,11 +34,11 @@ setorder(d, diff_caught_bled)
 d
 
 # testo data
-d[is.na(GnRH), .N, .(species, sex_genetic)]
-d[is.na(GnRH), .N, .(year_, species, sex_genetic)]
+d[is.na(GnRH), .N, .(species, sex)]
+d[is.na(GnRH), .N, .(year_, species, sex)]
 
 # GnRH data
-d[!is.na(GnRH), .N, .(species, sex_genetic)]
+d[!is.na(GnRH), .N, .(species, sex)]
 
 # volume
 d[is.na(volume), .N, species]
@@ -55,7 +55,7 @@ ggplot() +
 # exclude GnRH induced samples
 ds = d[is.na(GnRH)]
 
-ds[, species_sex := paste0(species, '_', sex_genetic)]
+ds[, species_sex := paste0(species, '_', sex)]
 dS = ds[, .(N = .N), by = .(species_sex)]
 
 # factor order
@@ -73,36 +73,36 @@ ggplot(ds) +
 
 # PESA
 ggplot() +
-  geom_point(data = ds[species == 'PESA'], aes(date_y, log(testo), color = sex_genetic)) +
-  geom_smooth(data = ds[species == 'PESA' & sex_genetic == 'M'], aes(date_y, log(testo)), method = 'lm', colour = 'dodgerblue3') +
-  geom_smooth(data = ds[species == 'PESA' & sex_genetic == 'F'], aes(date_y, log(testo)), method = 'lm', colour = 'firebrick3') +
+  geom_point(data = ds[species == 'PESA'], aes(date_y, log(testo), color = sex)) +
+  geom_smooth(data = ds[species == 'PESA' & sex == 'M'], aes(date_y, log(testo)), method = 'lm', colour = 'dodgerblue3') +
+  geom_smooth(data = ds[species == 'PESA' & sex == 'F'], aes(date_y, log(testo)), method = 'lm', colour = 'firebrick3') +
   scale_color_manual(name = 'Sex', values = c('F' = 'firebrick3', 'M' = 'dodgerblue3')) +
   labs(x = 'Date', y = 'Log testosteron (ng/ml)') +
   theme_classic(base_size = 18)
 
 # REPH
 ggplot() +
-  geom_point(data = ds[species == 'REPH'], aes(date_y, log(testo), color = sex_genetic)) +
-  geom_smooth(data = ds[species == 'REPH' & sex_genetic == 'M'], aes(date_y, log(testo)), method = 'lm', colour = 'dodgerblue3') +
-  geom_smooth(data = ds[species == 'REPH' & sex_genetic == 'F'], aes(date_y, log(testo)), method = 'lm', colour = 'firebrick3') +
+  geom_point(data = ds[species == 'REPH'], aes(date_y, log(testo), color = sex)) +
+  geom_smooth(data = ds[species == 'REPH' & sex == 'M'], aes(date_y, log(testo)), method = 'lm', colour = 'dodgerblue3') +
+  geom_smooth(data = ds[species == 'REPH' & sex == 'F'], aes(date_y, log(testo)), method = 'lm', colour = 'firebrick3') +
   scale_color_manual(name = 'Sex', values = c('F' = 'firebrick3', 'M' = 'dodgerblue3')) +
   labs(x = 'Date', y = 'Log testosteron (ng/ml)') +
   theme_classic(base_size = 18)
 
 # SESA
 ggplot() +
-  geom_point(data = ds[species == 'SESA'], aes(date_y, log(testo), color = sex_genetic)) +
-  geom_smooth(data = ds[species == 'SESA' & sex_genetic == 'M'], aes(date_y, log(testo)), method = 'lm', colour = 'dodgerblue3') +
-  geom_smooth(data = ds[species == 'SESA' & sex_genetic == 'F'], aes(date_y, log(testo)), method = 'lm', colour = 'firebrick3') +
+  geom_point(data = ds[species == 'SESA'], aes(date_y, log(testo), color = sex)) +
+  geom_smooth(data = ds[species == 'SESA' & sex == 'M'], aes(date_y, log(testo)), method = 'lm', colour = 'dodgerblue3') +
+  geom_smooth(data = ds[species == 'SESA' & sex == 'F'], aes(date_y, log(testo)), method = 'lm', colour = 'firebrick3') +
   scale_color_manual(name = 'Sex', values = c('F' = 'firebrick3', 'M' = 'dodgerblue3')) +
   labs(x = 'Date', y = 'Log testosteron (ng/ml)') +
   theme_classic(base_size = 18)
 
 # by species
 ggplot() +
-  geom_point(data = ds, aes(date_y, log(testo), color = sex_genetic)) +
-  geom_smooth(data = ds[sex_genetic == 'M'], aes(date_y, log(testo)), method = 'lm', colour = 'dodgerblue3') +
-  geom_smooth(data = ds[sex_genetic == 'F'], aes(date_y, log(testo)), method = 'lm', colour = 'firebrick3') +
+  geom_point(data = ds, aes(date_y, log(testo), color = sex)) +
+  geom_smooth(data = ds[sex == 'M'], aes(date_y, log(testo)), method = 'lm', colour = 'dodgerblue3') +
+  geom_smooth(data = ds[sex == 'F'], aes(date_y, log(testo)), method = 'lm', colour = 'firebrick3') +
   scale_color_manual(name = 'Sex', values = c('F' = 'firebrick3', 'M' = 'dodgerblue3')) +
   labs(x = 'Date', y = 'Log testosteron (ng/ml)') +
   theme_classic(base_size = 18) +
@@ -117,7 +117,7 @@ ggplot() +
   scale_color_manual(name = 'Species', values = c('REPH' = 'firebrick3', 'PESA' = 'dodgerblue3', 'SESA' = 'darkorange')) +
   labs(x = 'Date', y = 'Log testosteron (ng/ml)') +
   theme_classic(base_size = 18) +
-  facet_grid(rows = vars(sex_genetic))
+  facet_grid(rows = vars(sex))
 
 
 #-------------------------------------------------------------------------------------------------------------------------
