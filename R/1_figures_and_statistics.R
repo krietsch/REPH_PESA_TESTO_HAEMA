@@ -15,8 +15,8 @@
 #' (stored in ./OUTPUTS/FIGURES) and performed all statistical analysis (summary tables stored in./OUTPUTS/ESM).
 #==============================================================================================================
 
-sapply( c('data.table', 'magrittr', 'ggplot2', 'knitr', 'glmmTMB', 'effects', 'broomExtra',
-          'flextable', 'officer', 'DHARMa'),
+sapply( c('data.table', 'magrittr', 'ggplot2', 'knitr', 'glmmTMB', 'emmeans', 'effects', 'broomExtra',
+          'flextable', 'officer', 'DHARMa', 'ggparl', 'patchwork'),
         require, character.only = TRUE)
 
 # load data
@@ -27,7 +27,8 @@ d = readRDS('./DATA/REPH_PESA_SESA_testosterone.RDS')
 opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 # rmarkdown::render('./R/Testo_data_summary.R', output_dir = './OUTPUTS/R_COMPILED')
 
-d[, testo_log := log(testo)]
+d[, testo := testo/1000] # pg/ml to ng/ml
+d[, testo_log := log10(testo)]
 
 # bleeding time
 d[, caught_time := as.POSIXct(caught_time)]
@@ -35,12 +36,19 @@ d[, bled_time := as.POSIXct(bled_time)]
 d[, diff_caught_bled := difftime(bled_time, caught_time, units = 'mins') %>% as.numeric]
 
 # data as Julian
-d[, date_doy := yday(caught_time)]
+d[, date_doy := yday(date_)]
 
 # year as character
 d[, year_ := as.character(year_)]
 
-d[, .N, by = year_]
+d[, .N, by = .(species, year_)]
+
+# factor order
+d[, species := factor(species, levels = c('PESA', 'SESA', 'REPH'))]
+
+# min max scale
+d[, .(min(date_doy), max(date_doy))]
+d[, .(min(testo), max(testo))]
 
 #--------------------------------------------------------------------------------------------------------------
 # Between species comparison
@@ -50,41 +58,91 @@ d[, .N, by = year_]
 ds = d[is.na(GnRH)]
 
 # model for males
-dx = ds[sex_observed == 'M']
+dm = ds[sex == 'M']
 
-m <- glmmTMB(testo_log ~ species + volume + date_doy + year_,
+
+m <- glmmTMB(testo_log ~ species * poly(date_doy,2) + (1 | year_),
              family = gaussian(link = "identity"), 
-             data = dx,
+             data = dm,
              control = glmmTMBControl(parallel = 15)
 )
-
 
 plot(allEffects(m))
 summary(m)
 
-res <-simulateResiduals(m, plot = T)
-testDispersion(res) 
+emmeans(m, pairwise ~ species)
+
+# res <-simulateResiduals(m, plot = T)
+# testDispersion(res) 
+
+# extract season effect from model for plot
+es = effect("species:poly(date_doy, 2)", m, xlevels = 1000) |>
+  data.frame() |>
+  setDT()
+
+# subset period with data
+dr = dm[, .(first_data = min(date_doy), last_data = max(date_doy)), by = species]
+es = merge(es, dr, by = c('species'), all.x = TRUE)
+es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
+es = es[in_range == TRUE]
 
 
-m <- glmmTMB(testo_log ~ species + volume + date_doy + (1 | year_),
-             family = gaussian(link = "identity"), 
-             data = dx,
-             control = glmmTMBControl(parallel = 15)
-)
+
+e = effect("species", m, xlevels = 3) |>
+  data.frame() |>
+  setDT()
 
 
-plot(allEffects(m))
-summary(m)
 
-res <-simulateResiduals(m, plot = T)
-testDispersion(res) 
+# plot for males
+p1 = 
+ggplot() +
+  ggtitle('Males') + 
+  geom_boxjitter(data = dm, aes(species, testo, fill = species), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
+                 jitter.height = 0.0, jitter.width = 0.075, errorbar.draw = TRUE) +
+  scale_fill_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
+  scale_y_log10(limits = c(0.005, 350),
+                breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  annotation_logticks(sides = "l") +  
+  theme_classic(base_size = 10) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  ylab('Testosteron (ng/ml)') +
+  xlab('')
+
+
+# effect of season
+
+p3 =
+  ggplot() +
+  geom_point(data = dm, aes(date_doy, testo, color = species)) +
+  geom_line(data = es, aes(y = exp(fit), x = date_doy, color = species), size = 0.8) +
+  geom_ribbon(data = es, aes(y = exp(fit), x = date_doy, fill = species, ymin = exp(lower), ymax = exp(upper)), alpha = 0.2) +
+  scale_color_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
+  scale_fill_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
+  scale_y_log10(limits = c(0.005, 350),
+                breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  annotation_logticks(sides = "l") +  
+  scale_x_continuous(limits = c(144, 202), expand = expansion(add = c(0, 0))) +
+  theme_classic(base_size = 10) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  ylab('Testosteron (ng/ml)') +
+  xlab('Date (day of the year)')
+
+
+
+
+
+
 
 # model for females
-dx = ds[sex_observed == 'F']
+df = ds[sex == 'F']
 
-m <- glmmTMB(testo_log ~ species + volume + date_doy + year_,
+
+m <- glmmTMB(testo_log ~ species * date_doy + (1 | year_),
              family = gaussian(link = "identity"), 
-             data = dx,
+             data = df,
              control = glmmTMBControl(parallel = 15)
 )
 
@@ -92,27 +150,76 @@ m <- glmmTMB(testo_log ~ species + volume + date_doy + year_,
 plot(allEffects(m))
 summary(m)
 
-res <-simulateResiduals(m, plot = T)
-testDispersion(res) 
+emmeans(m, pairwise ~ species)
+
+# res <-simulateResiduals(m, plot = T)
+# testDispersion(res) 
+
+# extract season effect from model for plot
+es = effect("species:date_doy", m, xlevels = 1000) |>
+  data.frame() |>
+  setDT()
+
+# subset period with data
+dr = df[, .(first_data = min(date_doy), last_data = max(date_doy)), by = species]
+es = merge(es, dr, by = c('species'), all.x = TRUE)
+es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
+es = es[in_range == TRUE]
 
 
-m <- glmmTMB(testo_log ~ species + volume + date_doy + (1 | year_),
-             family = gaussian(link = "identity"), 
-             data = dx,
-             control = glmmTMBControl(parallel = 15)
-)
 
 
-plot(allEffects(m))
-summary(m)
+# plot for females
+p2 = 
+  ggplot() +
+  ggtitle('Females') + 
+  geom_boxjitter(data = df, aes(species, testo, fill = species), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
+                 jitter.height = 0.0, jitter.width = 0.075, errorbar.draw = TRUE) +
+  scale_fill_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
+  scale_y_log10(limits = c(0.005, 350),
+                breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  annotation_logticks(sides = "l") +  
+  theme_classic(base_size = 10) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  ylab('Testosteron (ng/ml)') +
+  xlab('')
 
-res <-simulateResiduals(m, plot = T)
-testDispersion(res) 
+
+# effect of season
+
+p4 =
+ggplot() +
+  geom_point(data = df, aes(date_doy, testo, color = species)) +
+  geom_line(data = es, aes(y = exp(fit), x = date_doy, color = species), size = 0.8) +
+  geom_ribbon(data = es, aes(y = exp(fit), x = date_doy, fill = species, ymin = exp(lower), ymax = exp(upper)), alpha = 0.2) +
+  scale_color_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
+  scale_fill_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
+  scale_y_log10(limits = c(0.005, 350),
+                breaks = scales::trans_breaks("log10", function(x) 10^x),
+                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  annotation_logticks(sides = "l") +  
+  scale_x_continuous(limits = c(144, 202), expand = expansion(add = c(0, 0))) +
+  theme_classic(base_size = 10) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  ylab('Testosteron (ng/ml)') +
+  xlab('Date (day of the year)')
 
 
-# To do:
 
-# plot and statistic for comparison between species 
+
+
+# merge plots
+p1 + p2 + p3 + p4 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = 'a')
+
+
+
+
+
+
+
 
 # plot and statistic for comparison with GnRH
 
