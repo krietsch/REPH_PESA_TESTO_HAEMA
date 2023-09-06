@@ -67,7 +67,7 @@ m <- glmmTMB(testo_log ~ species * poly(date_doy,2) + (1 | year_),
              control = glmmTMBControl(parallel = 15)
 )
 
-plot(allEffects(m))
+# plot(allEffects(m))
 summary(m)
 
 emmeans(m, pairwise ~ species)
@@ -87,7 +87,6 @@ es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
 es = es[in_range == TRUE]
 
 
-
 e = effect("species", m, xlevels = 3) |>
   data.frame() |>
   setDT()
@@ -99,23 +98,22 @@ p1 =
 ggplot() +
   ggtitle('Males') + 
   geom_boxjitter(data = dm, aes(species, testo, fill = species), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
-                 jitter.height = 0.0, jitter.width = 0.075, errorbar.draw = TRUE) +
+                 jitter.height = 0.0, jitter.width = 0.1, errorbar.draw = TRUE, jitter.size = 0.7, width = .6) +
   scale_fill_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
   scale_y_log10(limits = c(0.005, 350),
                 breaks = scales::trans_breaks("log10", function(x) 10^x),
                 labels = scales::trans_format("log10", scales::math_format(10^.x))) +
   annotation_logticks(sides = "l") +  
-  theme_classic(base_size = 10) +
+  theme_classic(base_size = 12) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
   ylab('Testosteron (ng/ml)') +
   xlab('')
 
 
 # effect of season
-
 p3 =
   ggplot() +
-  geom_point(data = dm, aes(date_doy, testo, color = species)) +
+  geom_point(data = dm, aes(date_doy, testo, color = species), size = 0.5) +
   geom_line(data = es, aes(y = exp(fit), x = date_doy, color = species), size = 0.8) +
   geom_ribbon(data = es, aes(y = exp(fit), x = date_doy, fill = species, ymin = exp(lower), ymax = exp(upper)), alpha = 0.2) +
   scale_color_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
@@ -124,15 +122,11 @@ p3 =
                 breaks = scales::trans_breaks("log10", function(x) 10^x),
                 labels = scales::trans_format("log10", scales::math_format(10^.x))) +
   annotation_logticks(sides = "l") +  
-  scale_x_continuous(limits = c(144, 202), expand = expansion(add = c(0, 0))) +
-  theme_classic(base_size = 10) +
+  scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
+  theme_classic(base_size = 12) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
   ylab('Testosteron (ng/ml)') +
-  xlab('Date (day of the year)')
-
-
-
-
+  xlab('Day of the year')
 
 
 
@@ -167,22 +161,20 @@ es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
 es = es[in_range == TRUE]
 
 
-
-
 # plot for females
 p2 = 
   ggplot() +
   ggtitle('Females') + 
   geom_boxjitter(data = df, aes(species, testo, fill = species), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
-                 jitter.height = 0.0, jitter.width = 0.075, errorbar.draw = TRUE) +
+                 jitter.height = 0.0, jitter.width = 0.075, errorbar.draw = TRUE, jitter.size = 0.7, width = .6) +
   scale_fill_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
   scale_y_log10(limits = c(0.005, 350),
                 breaks = scales::trans_breaks("log10", function(x) 10^x),
                 labels = scales::trans_format("log10", scales::math_format(10^.x))) +
   annotation_logticks(sides = "l") +  
-  theme_classic(base_size = 10) +
+  theme_classic(base_size = 12) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
-  ylab('Testosteron (ng/ml)') +
+  ylab('') +
   xlab('')
 
 
@@ -190,7 +182,7 @@ p2 =
 
 p4 =
 ggplot() +
-  geom_point(data = df, aes(date_doy, testo, color = species)) +
+  geom_point(data = df, aes(date_doy, testo, color = species), size = 0.5) +
   geom_line(data = es, aes(y = exp(fit), x = date_doy, color = species), size = 0.8) +
   geom_ribbon(data = es, aes(y = exp(fit), x = date_doy, fill = species, ymin = exp(lower), ymax = exp(upper)), alpha = 0.2) +
   scale_color_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
@@ -199,14 +191,11 @@ ggplot() +
                 breaks = scales::trans_breaks("log10", function(x) 10^x),
                 labels = scales::trans_format("log10", scales::math_format(10^.x))) +
   annotation_logticks(sides = "l") +  
-  scale_x_continuous(limits = c(144, 202), expand = expansion(add = c(0, 0))) +
-  theme_classic(base_size = 10) +
+  scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
+  theme_classic(base_size = 12) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
-  ylab('Testosteron (ng/ml)') +
-  xlab('Date (day of the year)')
-
-
-
+  ylab('') +
+  xlab('Day of the year')
 
 
 # merge plots
@@ -214,7 +203,8 @@ p1 + p2 + p3 + p4 +
   plot_layout(ncol = 2) +
   plot_annotation(tag_levels = 'a')
 
-
+ggsave('./OUTPUTS/FIGURES/testo_by_sex_and_species.tiff', plot = last_plot(),  width = 177, height = 177,
+       units = c('mm'), dpi = 'print')
 
 
 
