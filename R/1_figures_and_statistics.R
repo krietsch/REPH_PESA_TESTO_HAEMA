@@ -57,11 +57,18 @@ d[, .(min(testo), max(testo))]
 # exclude GnRH induced samples
 ds = d[is.na(GnRH)]
 
-# model for males
+# subset males
 dm = ds[sex == 'M']
 
+# sample size
+dms = dm[, .N, by = species]
+du = unique(dm, by = 'ID')
+du = du[, .(N_ind = .N), by = species]
+dms = merge(dms, du, by = 'species')
+dms[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 
-m <- glmmTMB(testo_log ~ species * poly(date_doy,2) + (1 | year_),
+# model
+m <- glmmTMB(testo_log ~ species * poly(date_doy,2) + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
              data = dm,
              control = glmmTMBControl(parallel = 15)
@@ -94,18 +101,19 @@ e = effect("species", m, xlevels = 3) |>
 
 
 # plot for males
-p1 = 
+p1 =
 ggplot() +
   ggtitle('Males') + 
   geom_boxjitter(data = dm, aes(species, testo, fill = species), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
                  jitter.height = 0.0, jitter.width = 0.1, errorbar.draw = TRUE, jitter.size = 0.7, width = .6) +
   scale_fill_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
+  geom_text(data = dms, aes(species, Inf, label = sample_size), vjust = 1, size = 3) +
   scale_y_log10(limits = c(0.005, 350),
                 breaks = scales::trans_breaks("log10", function(x) 10^x),
                 labels = scales::trans_format("log10", scales::math_format(10^.x))) +
   annotation_logticks(sides = "l") +  
   theme_classic(base_size = 12) +
-  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5, size = 10, face = "bold")) +
   ylab('Testosteron (ng/ml)') +
   xlab('')
 
@@ -130,11 +138,18 @@ p3 =
 
 
 
-# model for females
+# subset females
 df = ds[sex == 'F']
 
+# sample size
+dfs = df[, .N, by = species]
+du = unique(df, by = 'ID')
+du = du[, .(N_ind = .N), by = species]
+dfs = merge(dfs, du, by = 'species')
+dfs[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 
-m <- glmmTMB(testo_log ~ species * date_doy + (1 | year_),
+# model
+m <- glmmTMB(testo_log ~ species * date_doy + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
              data = df,
              control = glmmTMBControl(parallel = 15)
@@ -168,12 +183,13 @@ p2 =
   geom_boxjitter(data = df, aes(species, testo, fill = species), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
                  jitter.height = 0.0, jitter.width = 0.075, errorbar.draw = TRUE, jitter.size = 0.7, width = .6) +
   scale_fill_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
+  geom_text(data = dfs, aes(species, Inf, label = sample_size), vjust = 1, size = 3) +
   scale_y_log10(limits = c(0.005, 350),
                 breaks = scales::trans_breaks("log10", function(x) 10^x),
                 labels = scales::trans_format("log10", scales::math_format(10^.x))) +
   annotation_logticks(sides = "l") +  
   theme_classic(base_size = 12) +
-  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5, size = 10, face = "bold")) +
   ylab('') +
   xlab('')
 
@@ -207,11 +223,10 @@ ggsave('./OUTPUTS/FIGURES/testo_by_sex_and_species.tiff', plot = last_plot(),  w
        units = c('mm'), dpi = 'print')
 
 
+#--------------------------------------------------------------------------------------------------------------
+# GnRH experiment
+#--------------------------------------------------------------------------------------------------------------
 
-
-
-
-# plot and statistic for comparison with GnRH
 
 
 
