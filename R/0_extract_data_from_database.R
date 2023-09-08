@@ -107,4 +107,4 @@ dS = dc[!is.na(testo), .(species = 'SESA', ID, date_, caught_time = caught_date_
 d = rbindlist(list(dR, dP, dS))
 d[, year_ := year(date_)]
 
-# saveRDS(d, './DATA/REPH_PESA_SESA_testosterone.RDS')
+saveRDS(d, './DATA/REPH_PESA_SESA_testosterone.RDS')
