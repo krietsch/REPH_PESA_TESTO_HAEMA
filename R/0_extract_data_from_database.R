@@ -95,7 +95,7 @@ dc[sex == 1, sex_genetic := 'M']
 dc[sex == 2, sex_genetic := 'F']
 
 # merge with testo
-dc = merge(dc, dt[, .(ID, date_, GnRH = NA, volume = NA, testo)], by = c('ID', 'date_'), all.x = TRUE)
+dc = merge(dc, dt[, .(ID, date_, GnRH = NA, volume = NA, testo = testo_1)], by = c('ID', 'date_'), all.x = TRUE)
 
 dS = dc[!is.na(testo), .(species = 'SESA', ID, date_, caught_time = caught_date_time, bled_time = bled_date_time, 
                          sex = sex_genetic, testo, volume = NA, GnRH = NA)]

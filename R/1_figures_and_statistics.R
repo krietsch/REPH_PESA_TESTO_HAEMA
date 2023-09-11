@@ -61,7 +61,7 @@ dms = merge(dms, du, by = 'species')
 dms[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 
 # model
-m <- glmmTMB(testo_log ~ species * poly(date_doy,2) + (1 | year_) + (1 | ID),
+m <- glmmTMB(testo_log ~ species + poly(date_doy,2) + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
              data = dm,
              control = glmmTMBControl(parallel = 15)
@@ -73,7 +73,7 @@ summary(m)
 emmeans(m, pairwise ~ species)
 
 # res <-simulateResiduals(m, plot = T)
-# testDispersion(res) 
+# testDispersion(res)
 
 # extract season effect from model for plot
 es = effect("species:poly(date_doy, 2)", m, xlevels = 1000) |>
@@ -142,7 +142,7 @@ dfs = merge(dfs, du, by = 'species')
 dfs[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 
 # model
-m <- glmmTMB(testo_log ~ species * date_doy + (1 | year_) + (1 | ID),
+m <- glmmTMB(testo_log ~ species + poly(date_doy, 2) + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
              data = df,
              control = glmmTMBControl(parallel = 15)
