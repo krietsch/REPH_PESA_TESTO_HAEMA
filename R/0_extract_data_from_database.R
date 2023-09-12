@@ -30,7 +30,7 @@ dc[, date_ := as.Date(caught_time)]
 dc = merge(dc[, !c('GnRH'), with = FALSE], dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
 
 dR = dc[!is.na(T), .(species = 'REPH', ID, date_, caught_time, bled_time, sex = sex, 
-                     testo = T, volume, GnRH)]
+                     testo = T, volume, GnRH, haema)]
 
 #-------------------------------------------------------------------------------------------------------------------------
 # PESA data
@@ -61,7 +61,7 @@ dc[, date_ := as.Date(caught_time)]
 dc = merge(dc, dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
 
 dP = dc[!is.na(T), .(species = 'PESA', ID, date_, caught_time = caught_date_time, bled_time = bled_date_time, 
-                     sex = sex_genetic, testo = T, volume, GnRH)]
+                     sex = sex_genetic, testo = T, volume, GnRH, haema = hematocrit)]
 
 #-------------------------------------------------------------------------------------------------------------------------
 # SESA data
@@ -98,7 +98,7 @@ dc[sex == 2, sex_genetic := 'F']
 dc = merge(dc, dt[, .(ID, date_, GnRH = NA, volume = NA, testo = testo_1)], by = c('ID', 'date_'), all.x = TRUE)
 
 dS = dc[!is.na(testo), .(species = 'SESA', ID, date_, caught_time = caught_date_time, bled_time = bled_date_time, 
-                         sex = sex_genetic, testo, volume = NA, GnRH = NA)]
+                         sex = sex_genetic, testo, volume = NA, GnRH = NA, haema = hematocrit)]
 
 #-------------------------------------------------------------------------------------------------------------------------
 # merge species
