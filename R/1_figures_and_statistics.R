@@ -36,7 +36,9 @@ d[, year_ := as.character(year_)]
 d[, .N, by = .(species, year_)]
 
 # factor order
-d[, species := factor(species, levels = c('PESA', 'SESA', 'REPH'))]
+d[species == 'REPH', species := 'Red phalarope']
+d[species == 'PESA', species := 'Pectoral sandpiper']
+d[, species := factor(species, levels = c('Pectoral sandpiper', 'Red phalarope'))]
 
 # min max scale
 d[, .(min(date_doy), max(date_doy))]
@@ -60,7 +62,7 @@ dms = merge(dms, du, by = 'species')
 dms[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 
 # model
-m <- glmmTMB(testo_log ~ species + poly(date_doy,2) + (1 | year_) + (1 | ID),
+m <- glmmTMB(testo_log ~ species * poly(date_doy,2) + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
              data = dm,
              control = glmmTMBControl(parallel = 15)
@@ -84,7 +86,7 @@ es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
 es = es[in_range == TRUE]
 
 
-e = effect("species", m, xlevels = 3) |>
+e = effect("species", m, xlevels = 2) |>
   data.frame() |>
   setDT()
 
@@ -94,31 +96,37 @@ e = effect("species", m, xlevels = 3) |>
 p1 =
 ggplot() +
   ggtitle('Males') + 
-  geom_boxjitter(data = dm, aes(species, testo, fill = species), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
-                 jitter.height = 0.0, jitter.width = 0.1, errorbar.draw = TRUE, jitter.size = 0.7, width = .6) +
+  geom_violin(data = dm, aes(species, testo, fill = species), alpha = 0.7) +
+  geom_point(data = e, aes(species, 10^fit, color = species),
+             position = position_dodge(0.5), size = 2) +
+  geom_linerange(data = e, aes(x = species, ymin = 10^upper, ymax = 10^lower, color = species), size = 0.5,
+                 position = position_dodge(width = 0.5)) +
+  # geom_jitter(data = dm, aes(species, 10^testo_log, color = species)) +
+  # geom_boxjitter(data = dm, aes(species, testo, fill = species), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
+  #                jitter.height = 0.0, jitter.width = 0.1, errorbar.draw = TRUE, jitter.size = 0.7, width = .6) +
   scale_fill_manual(values = c("steelblue4", 'indianred3')) +
+  scale_color_manual(values = c("black", 'black')) +
   geom_text(data = dms, aes(species, Inf, label = sample_size), vjust = 1, size = 2.5) +
-  scale_y_log10(limits = c(0.005, 350),
-                breaks = scales::trans_breaks("log10", function(x) 10^x),
-                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  scale_y_log10(limits = c(0.001, 350),
+                breaks = c(0.001, 0.01, 0.1, 1, 10, 100),
+                labels = c(0.001, 0.01, 0.1, 1, 10, 100)) +
   annotation_logticks(sides = "l") +  
   theme_classic(base_size = 10) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5, size = 10, face = "bold")) +
   ylab('Testosteron (ng/ml)') +
-  xlab('')
-
+  xlab('Species')
 
 # effect of season
 p3 =
   ggplot() +
-  geom_point(data = dm, aes(date_doy, testo, color = species), size = 0.5) +
-  geom_line(data = es, aes(y = exp(fit), x = date_doy, color = species), size = 0.8) +
-  geom_ribbon(data = es, aes(y = exp(fit), x = date_doy, fill = species, ymin = exp(lower), ymax = exp(upper)), alpha = 0.2) +
+  geom_point(data = dm, aes(date_doy, testo, color = species), size = 0.5, alpha = 0.5) +
+  geom_line(data = es, aes(y = 10^fit, x = date_doy, color = species), size = 0.8) +
+  geom_ribbon(data = es, aes(y = 10^fit, x = date_doy, fill = species, ymin = 10^lower, ymax = 10^upper), alpha = 0.2) +
   scale_color_manual(values = c("steelblue4", 'indianred3')) +
   scale_fill_manual(values = c("steelblue4", 'indianred3')) +
-  scale_y_log10(limits = c(0.005, 350),
-                breaks = scales::trans_breaks("log10", function(x) 10^x),
-                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  scale_y_log10(limits = c(0.001, 350),
+                breaks = c(0.001, 0.01, 0.1, 1, 10, 100),
+                labels = c(0.001, 0.01, 0.1, 1, 10, 100)) +
   annotation_logticks(sides = "l") +  
   scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
   theme_classic(base_size = 10) +
@@ -139,7 +147,7 @@ dfs = merge(dfs, du, by = 'species')
 dfs[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 
 # model
-m <- glmmTMB(testo_log ~ species + poly(date_doy, 2) + (1 | year_) + (1 | ID),
+m <- glmmTMB(testo_log ~ species * date_doy + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
              data = df,
              control = glmmTMBControl(parallel = 15)
@@ -163,37 +171,47 @@ es = merge(es, dr, by = c('species'), all.x = TRUE)
 es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
 es = es[in_range == TRUE]
 
+e = effect("species", m, xlevels = 2) |>
+  data.frame() |>
+  setDT()
+
 
 # plot for females
 p2 = 
   ggplot() +
   ggtitle('Females') + 
-  geom_boxjitter(data = df, aes(species, testo, fill = species), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
-                 jitter.height = 0.0, jitter.width = 0.075, errorbar.draw = TRUE, jitter.size = 0.7, width = .6) +
+  geom_violin(data = df, aes(species, testo, fill = species), alpha = 0.7) +
+  geom_point(data = e, aes(species, 10^fit, color = species),
+             position = position_dodge(0.5), size = 2) +
+  geom_linerange(data = e, aes(x = species, ymin = 10^upper, ymax = 10^lower, color = species), size = 0.5,
+                 position = position_dodge(width = 0.5)) +
+  # geom_boxjitter(data = df, aes(species, testo, fill = species), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
+  #                jitter.height = 0.0, jitter.width = 0.075, errorbar.draw = TRUE, jitter.size = 0.7, width = .6) +
   scale_fill_manual(values = c("steelblue4", 'indianred3')) +
+  scale_color_manual(values = c("black", 'black')) +
   geom_text(data = dfs, aes(species, Inf, label = sample_size), vjust = 1, size = 2.5) +
-  scale_y_log10(limits = c(0.005, 350),
-                breaks = scales::trans_breaks("log10", function(x) 10^x),
-                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  scale_y_log10(limits = c(0.001, 350),
+                breaks = c(0.001, 0.01, 0.1, 1, 10, 100),
+                labels = c(0.001, 0.01, 0.1, 1, 10, 100)) +
   annotation_logticks(sides = "l") +  
   theme_classic(base_size = 10) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5, size = 10, face = "bold")) +
   ylab('') +
-  xlab('')
+  xlab('Species')
 
 
 # effect of season
 
 p4 =
 ggplot() +
-  geom_point(data = df, aes(date_doy, testo, color = species), size = 0.5) +
-  geom_line(data = es, aes(y = exp(fit), x = date_doy, color = species), size = 0.8) +
-  geom_ribbon(data = es, aes(y = exp(fit), x = date_doy, fill = species, ymin = exp(lower), ymax = exp(upper)), alpha = 0.2) +
+  geom_point(data = df, aes(date_doy, testo, color = species), size = 0.5, alpha = 0.5) +
+  geom_line(data = es, aes(y = 10^fit, x = date_doy, color = species), size = 0.8) +
+  geom_ribbon(data = es, aes(y = 10^fit, x = date_doy, fill = species, ymin = 10^lower, ymax = 10^upper), alpha = 0.2) +
   scale_color_manual(values = c("steelblue4", 'indianred3')) +
   scale_fill_manual(values = c("steelblue4", 'indianred3')) +
-  scale_y_log10(limits = c(0.005, 350),
-                breaks = scales::trans_breaks("log10", function(x) 10^x),
-                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+  scale_y_log10(limits = c(0.001, 350),
+                breaks = c(0.001, 0.01, 0.1, 1, 10, 100),
+                labels = c(0.001, 0.01, 0.1, 1, 10, 100)) +
   annotation_logticks(sides = "l") +  
   scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
   theme_classic(base_size = 10) +
@@ -207,8 +225,8 @@ p1 + p2 + p3 + p4 +
   plot_layout(ncol = 2) +
   plot_annotation(tag_levels = 'a')
 
-# ggsave('./OUTPUTS/FIGURES/testo_by_sex_and_species.tiff', plot = last_plot(),  width = 177, height = 177,
-#        units = c('mm'), dpi = 'print')
+ggsave('./OUTPUTS/FIGURES/testo_by_sex_and_species.tiff', plot = last_plot(),  width = 177, height = 177,
+       units = c('mm'), dpi = 'print')
 
 #--------------------------------------------------------------------------------------------------------------
 # GnRH experiment
@@ -259,27 +277,40 @@ m <- glmmTMB(testo_log ~ species * GnRH_sample +  GnRH,
 # plot(allEffects(m))
 summary(m)
 
+e = effect("species:GnRH_sample", m, xlevels = 2) |>
+  data.frame() |>
+  setDT()
+
+e[, species_sample := paste0(species, '_', GnRH_sample)]
 
 p1 =
-  ggplot(aes(species_sample, testo), data = dm) +
+  ggplot() +
   ggtitle('Males') + 
   geom_text(data = dms, aes(species_sample, Inf, label = sample_size), vjust = 1, hjust = -0.5, size = 3) +
-  geom_boxplot(aes(fill = species), outlier.colour = NA) +
-  scale_fill_manual(values = c("steelblue4", 'indianred3')) +
+  geom_point(data = e[GnRH_sample == 'Baseline'], aes(species_sample, 10^fit, color = species),
+               position = position_nudge(x = -0.2), size = 2) +
+  geom_point(data = e[GnRH_sample == 'GnRH-induced'], aes(species_sample, 10^fit, color = species),
+             position = position_nudge(x = 0.2), size = 2) +
+  geom_linerange(data = e[GnRH_sample == 'Baseline'], aes(x = species_sample, ymin = 10^upper, ymax = 10^lower, color = species), size = 0.5,
+                 position = position_nudge(x = -0.2)) +
+  geom_linerange(data =  e[GnRH_sample == 'GnRH-induced'], aes(x = species_sample, ymin = 10^upper, ymax = 10^lower, color = species), size = 0.5,
+                 position = position_nudge(x = 0.2)) +
+  scale_color_manual(values = c("steelblue4", 'indianred3')) +
   ggnewscale::new_scale_fill() +
-  geom_line(aes(group = ID)) +
-  geom_point(aes(fill = GnRH), shape = 21, size = 1) +
+  geom_line(data = dm, aes(species_sample, testo, group = ID)) +
+  geom_point(data = dm, aes(species_sample, testo, fill = GnRH), shape = 21, size = 1) +
   scale_fill_manual(values=c("black", "white")) +
   scale_y_log10(limits = c(0.1, 50),
-                breaks = scales::trans_breaks("log10", function(x) 10^x),
-                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+                breaks = c(0.01, 0.1, 1, 10),
+                labels = c(0.01, 0.1, 1, 10)) +
   annotation_logticks(sides = "l") + 
-  scale_x_discrete(breaks = c('PESA_Baseline', 'PESA_GnRH-induced', 'REPH_Baseline', 'REPH_GnRH-induced'),
-                   labels = c('Baseline', 'Induced', 'Baseline', 'Induced')) +
+  scale_x_discrete(breaks = c('Pectoral sandpiper_Baseline', 'Pectoral sandpiper_GnRH-induced', 
+                              'Red phalarope_Baseline', 'Red phalarope_GnRH-induced'),
+                   labels = c('Baseline', 'GnRH', 'Baseline', 'GnRH')) +
   theme_classic(base_size = 10) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5, size = 10, face = "bold")) +
   ylab('Testosteron (ng/ml)') +
-  xlab('PESA                       REPH')
+  xlab('Pectoral Sandpiper       Red Phalarope    ')
 
 
 # subset females
@@ -301,27 +332,41 @@ m <- glmmTMB(testo_log ~ species * GnRH_sample +  GnRH,
 # plot(allEffects(m))
 summary(m)
 
+e = effect("species:GnRH_sample", m, xlevels = 2) |>
+  data.frame() |>
+  setDT()
+
+e[, species_sample := paste0(species, '_', GnRH_sample)]
+
 
 p2 =
-  ggplot(aes(species_sample, testo), data = df) +
+  ggplot() +
   ggtitle('Females') + 
   geom_text(data = dfs, aes(species_sample, Inf, label = sample_size), vjust = 1, hjust = -0.5, size = 3) +
-  geom_boxplot(aes(fill = species), outlier.colour = NA) +
-  scale_fill_manual(values = c("steelblue4", 'indianred3')) +
+  geom_point(data = e[GnRH_sample == 'Baseline'], aes(species_sample, 10^fit, color = species),
+             position = position_nudge(x = -0.2), size = 2) +
+  geom_point(data = e[GnRH_sample == 'GnRH-induced'], aes(species_sample, 10^fit, color = species),
+             position = position_nudge(x = 0.2), size = 2) +
+  geom_linerange(data = e[GnRH_sample == 'Baseline'], aes(x = species_sample, ymin = 10^upper, ymax = 10^lower, color = species), size = 0.5,
+                 position = position_nudge(x = -0.2)) +
+  geom_linerange(data =  e[GnRH_sample == 'GnRH-induced'], aes(x = species_sample, ymin = 10^upper, ymax = 10^lower, color = species), size = 0.5,
+                 position = position_nudge(x = 0.2)) +
+  scale_color_manual(values = c("steelblue4", 'indianred3')) +
   ggnewscale::new_scale_fill() +
-  geom_line(aes(group = ID)) +
-  geom_point(aes(fill = GnRH), shape = 21, size = 1) +
+  geom_line(data = df, aes(species_sample, testo, group = ID)) +
+  geom_point(data = df, aes(species_sample, testo, fill = GnRH), shape = 21, size = 1) +
   scale_fill_manual(values=c("black", "white")) +
   scale_y_log10(limits = c(0.1, 50),
-                breaks = scales::trans_breaks("log10", function(x) 10^x),
-                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
+                breaks = c(0.01, 0.1, 1, 10),
+                labels = c(0.01, 0.1, 1, 10)) +
   annotation_logticks(sides = "l") +  
-  scale_x_discrete(breaks = c('PESA_Baseline', 'PESA_GnRH-induced', 'REPH_Baseline', 'REPH_GnRH-induced'),
-                   labels = c('Baseline', 'Induced', 'Baseline', 'Induced')) +
+  scale_x_discrete(breaks = c('Pectoral sandpiper_Baseline', 'Pectoral sandpiper_GnRH-induced', 
+                              'Red phalarope_Baseline', 'Red phalarope_GnRH-induced'),
+                   labels = c('Baseline', 'GnRH', 'Baseline', 'GnRH')) +
   theme_classic(base_size = 10) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5, size = 10, face = "bold")) +
   ylab('') + 
-  xlab('PESA                       REPH')
+  xlab('Pectoral Sandpiper       Red Phalarope    ')
 
 # merge plots
 p1 + p2 +
@@ -329,9 +374,8 @@ p1 + p2 +
   plot_annotation(tag_levels = 'a')
 
 
-
-# ggsave('./OUTPUTS/FIGURES/testo_GnRH.tiff', plot = last_plot(),  width = 177, height = 88,
-#        units = c('mm'), dpi = 'print')
+ggsave('./OUTPUTS/FIGURES/testo_GnRH.tiff', plot = last_plot(),  width = 177, height = 88,
+       units = c('mm'), dpi = 'print')
 
 #--------------------------------------------------------------------------------------------------------------
 # Testosterone influence on haematocrit
@@ -345,7 +389,6 @@ d[, sex := factor(sex, levels = c('M', 'F'))]
 
 # exclude GnRH induced samples
 ds = d[is.na(GnRH)]
-
 
 ggplot() +
   ggtitle('Males') + 
@@ -459,7 +502,7 @@ p1 + p2 +
 ### by species
 
 # PESA
-dss = ds[species == 'PESA']
+dss = ds[species == 'Pectoral sandpiper']
 
 # model
 m <- glmmTMB(haema ~ sex * date_doy + testo_log  + (1 | year_) + (1 | ID),
@@ -491,7 +534,7 @@ e = effect("sex:testo_log", m, xlevels = 1000) |>
 # sex comparision
 p1 = 
   ggplot() +
-  ggtitle('PESA') + 
+  ggtitle('Pectoral sandpiper') + 
   geom_boxjitter(data = dss, aes(sex, haema, fill = sex), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
                  jitter.height = 0.0, jitter.width = 0.1, errorbar.draw = TRUE, jitter.size = 0.7, width = .6) +
   scale_fill_manual(values = c("steelblue4", 'indianred3')) +
@@ -536,7 +579,7 @@ p3 =
   xlab('Testosteron (ng/ml)')
 
 # REPH
-dss = ds[species == 'REPH']
+dss = ds[species == 'Red phalarope']
 
 # model
 m <- glmmTMB(haema ~ sex + date_doy + testo_log  + (1 | year_) + (1 | ID),
@@ -568,7 +611,7 @@ e = effect("sex:testo_log", m, xlevels = 1000) |>
 # sex comparision
 p4 = 
   ggplot() +
-  ggtitle('REPH') + 
+  ggtitle('Red Phalarope') + 
   geom_boxjitter(data = dss, aes(sex, haema, fill = sex), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
                  jitter.height = 0.0, jitter.width = 0.1, errorbar.draw = TRUE, jitter.size = 0.7, width = .6) +
   scale_fill_manual(values = c("steelblue4", 'indianred3')) +
@@ -598,11 +641,11 @@ p5 =
 p6 =
   ggplot() +
   geom_point(data = dss, aes(exp(testo_log), haema, color = sex), size = 0.5) +
-  geom_line(data = e, aes(y = fit, x = exp(testo_log), color = sex), size = 0.8) +
-  geom_ribbon(data = e, aes(y = fit, x = exp(testo_log), fill = sex, ymin = lower, ymax = upper), alpha = 0.2) +
+  geom_line(data = e, aes(y = fit, x = 10^testo_log, color = sex), size = 0.8) +
+  geom_ribbon(data = e, aes(y = fit, x = 10^testo_log, fill = sex, ymin = lower, ymax = upper), alpha = 0.2) +
   scale_color_manual(values = c("steelblue4", 'indianred3')) +
   scale_fill_manual(values = c("steelblue4", 'indianred3')) +
-  scale_y_continuous(limits = c(28, 87), expand = expansion(add = c(0, 0))) +
+  scale_y_continuous(limits = c(28, 70), expand = expansion(add = c(0, 0))) +
   scale_x_log10(limits = c(0.1, 15),
                 breaks = scales::trans_breaks("log10", function(x) 10^x),
                 labels = scales::trans_format("log10", scales::math_format(10^.x))) +
@@ -615,14 +658,15 @@ p6 =
 
 
 # merge plots
-p1 + p4 + p7 + 
-p2 + p5 + p8 + 
-  plot_layout(ncol = 3) +
+p1 + p4 +
+p2 + p5 +
+p3 + p6 +
+  plot_layout(ncol = 2) +
   plot_annotation(tag_levels = 'a')
 
 
-# ggsave('./OUTPUTS/FIGURES/haematocrit_species_split.tiff', plot = last_plot(),  width = 177, height = 177,
-#        units = c('mm'), dpi = 'print')
+ggsave('./OUTPUTS/FIGURES/haematocrit_species_split.tiff', plot = last_plot(),  width = 177, height = 177,
+       units = c('mm'), dpi = 'print')
 
 
 
