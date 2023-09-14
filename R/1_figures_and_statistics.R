@@ -13,8 +13,7 @@ sapply( c('data.table', 'magrittr', 'ggplot2', 'knitr', 'glmmTMB', 'emmeans', 'e
         require, character.only = TRUE)
 
 # load data
-# source('./R/Testo_data_merge.R')
-d = readRDS('./DATA/REPH_PESA_SESA_testosterone.RDS')
+d = readRDS('./DATA/REPH_PESA_testosterone.RDS')
 
 # Lines to run to create html output
 opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
@@ -67,10 +66,8 @@ m <- glmmTMB(testo_log ~ species + poly(date_doy,2) + (1 | year_) + (1 | ID),
              control = glmmTMBControl(parallel = 15)
 )
 
-# plot(allEffects(m))
+plot(allEffects(m))
 summary(m)
-
-emmeans(m, pairwise ~ species)
 
 # res <-simulateResiduals(m, plot = T)
 # testDispersion(res)
@@ -99,7 +96,7 @@ ggplot() +
   ggtitle('Males') + 
   geom_boxjitter(data = dm, aes(species, testo, fill = species), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
                  jitter.height = 0.0, jitter.width = 0.1, errorbar.draw = TRUE, jitter.size = 0.7, width = .6) +
-  scale_fill_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
+  scale_fill_manual(values = c("steelblue4", 'indianred3')) +
   geom_text(data = dms, aes(species, Inf, label = sample_size), vjust = 1, size = 2.5) +
   scale_y_log10(limits = c(0.005, 350),
                 breaks = scales::trans_breaks("log10", function(x) 10^x),
@@ -117,8 +114,8 @@ p3 =
   geom_point(data = dm, aes(date_doy, testo, color = species), size = 0.5) +
   geom_line(data = es, aes(y = exp(fit), x = date_doy, color = species), size = 0.8) +
   geom_ribbon(data = es, aes(y = exp(fit), x = date_doy, fill = species, ymin = exp(lower), ymax = exp(upper)), alpha = 0.2) +
-  scale_color_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
-  scale_fill_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
+  scale_color_manual(values = c("steelblue4", 'indianred3')) +
+  scale_fill_manual(values = c("steelblue4", 'indianred3')) +
   scale_y_log10(limits = c(0.005, 350),
                 breaks = scales::trans_breaks("log10", function(x) 10^x),
                 labels = scales::trans_format("log10", scales::math_format(10^.x))) +
@@ -149,10 +146,8 @@ m <- glmmTMB(testo_log ~ species + poly(date_doy, 2) + (1 | year_) + (1 | ID),
 )
 
 
-# plot(allEffects(m))
+plot(allEffects(m))
 summary(m)
-
-emmeans(m, pairwise ~ species)
 
 # res <-simulateResiduals(m, plot = T)
 # testDispersion(res) 
@@ -175,7 +170,7 @@ p2 =
   ggtitle('Females') + 
   geom_boxjitter(data = df, aes(species, testo, fill = species), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
                  jitter.height = 0.0, jitter.width = 0.075, errorbar.draw = TRUE, jitter.size = 0.7, width = .6) +
-  scale_fill_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
+  scale_fill_manual(values = c("steelblue4", 'indianred3')) +
   geom_text(data = dfs, aes(species, Inf, label = sample_size), vjust = 1, size = 2.5) +
   scale_y_log10(limits = c(0.005, 350),
                 breaks = scales::trans_breaks("log10", function(x) 10^x),
@@ -194,8 +189,8 @@ ggplot() +
   geom_point(data = df, aes(date_doy, testo, color = species), size = 0.5) +
   geom_line(data = es, aes(y = exp(fit), x = date_doy, color = species), size = 0.8) +
   geom_ribbon(data = es, aes(y = exp(fit), x = date_doy, fill = species, ymin = exp(lower), ymax = exp(upper)), alpha = 0.2) +
-  scale_color_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
-  scale_fill_manual(values = c("steelblue4", "#E69F00", 'indianred3')) +
+  scale_color_manual(values = c("steelblue4", 'indianred3')) +
+  scale_fill_manual(values = c("steelblue4", 'indianred3')) +
   scale_y_log10(limits = c(0.005, 350),
                 breaks = scales::trans_breaks("log10", function(x) 10^x),
                 labels = scales::trans_format("log10", scales::math_format(10^.x))) +
@@ -254,7 +249,7 @@ dms[, species_sample := paste0(species, '_Baseline')]
 
 
 # model
-m <- glmmTMB(testo_log ~ species + GnRH_sample +  GnRH,
+m <- glmmTMB(testo_log ~ species * GnRH_sample +  GnRH,
              family = gaussian(link = "identity"), 
              data = dm,
              control = glmmTMBControl(parallel = 15)
@@ -296,7 +291,7 @@ dfs[, sample_size := paste0('N = ', N/2)]
 dfs[, species_sample := paste0(species, '_Baseline')]
 
 # model
-m <- glmmTMB(testo_log ~ species + GnRH_sample +  GnRH,
+m <- glmmTMB(testo_log ~ species * GnRH_sample +  GnRH,
              family = gaussian(link = "identity"), 
              data = df,
              control = glmmTMBControl(parallel = 15)
@@ -544,7 +539,7 @@ p3 =
 dss = ds[species == 'REPH']
 
 # model
-m <- glmmTMB(haema ~ sex * date_doy + testo_log  + (1 | year_) + (1 | ID),
+m <- glmmTMB(haema ~ sex + date_doy + testo_log  + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
              data = dss,
              control = glmmTMBControl(parallel = 15)
@@ -618,89 +613,10 @@ p6 =
   xlab('Testosteron (ng/ml)')
 
 
-# SESA
-dss = ds[species == 'SESA']
-
-# model
-m <- glmmTMB(haema ~ sex * date_doy + testo_log  + (1 | ID),
-             family = gaussian(link = "identity"), 
-             data = dss,
-             control = glmmTMBControl(parallel = 15)
-)
-
-plot(allEffects(m))
-summary(m)
-
-# extract season effect from model for plot
-es = effect("sex:date_doy", m, xlevels = 1000) |>
-  data.frame() |>
-  setDT()
-
-# subset period with data
-dr = dm[, .(first_data = min(date_doy), last_data = max(date_doy)), by = sex]
-es = merge(es, dr, by = c('sex'), all.x = TRUE)
-es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
-es = es[in_range == TRUE]
-
-# extract effect of testo
-e = effect("sex:testo_log", m, xlevels = 1000) |>
-  data.frame() |>
-  setDT()
-
-
-# sex comparision
-p7 = 
-  ggplot() +
-  ggtitle('SESA') + 
-  geom_boxjitter(data = dss, aes(sex, haema, fill = sex), outlier.color = NA, jitter.shape = 21, jitter.color = NA, 
-                 jitter.height = 0.0, jitter.width = 0.1, errorbar.draw = TRUE, jitter.size = 0.7, width = .6) +
-  scale_fill_manual(values = c("steelblue4", 'indianred3')) +
-  scale_y_continuous(limits = c(28, 87), expand = expansion(add = c(0, 0))) +
-  theme_classic(base_size = 10) +
-  theme(legend.position = "none", plot.title = element_text(hjust = 0.5, size = 10, face = "bold")) +
-  ylab('Haematocrit') +
-  xlab('')
-
-
-# effect of season
-p8 =
-  ggplot() +
-  geom_point(data = dss, aes(date_doy, haema, color = sex), size = 0.5) +
-  geom_line(data = es, aes(y = fit, x = date_doy, color = sex), size = 0.8) +
-  geom_ribbon(data = es, aes(y = fit, x = date_doy, fill = sex, ymin = lower, ymax = upper), alpha = 0.2) +
-  scale_color_manual(values = c("steelblue4", 'indianred3')) +
-  scale_fill_manual(values = c("steelblue4", 'indianred3')) +
-  scale_y_continuous(limits = c(28, 87), expand = expansion(add = c(0, 0))) +
-  scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
-  theme_classic(base_size = 10) +
-  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
-  ylab('Haematocrit') +
-  xlab('Day of the year')
-
-# effect of testosterone
-p9 =
-  ggplot() +
-  geom_point(data = dss, aes(exp(testo_log), haema, color = sex), size = 0.5) +
-  geom_line(data = e, aes(y = fit, x = exp(testo_log), color = sex), size = 0.8) +
-  geom_ribbon(data = e, aes(y = fit, x = exp(testo_log), fill = sex, ymin = lower, ymax = upper), alpha = 0.2) +
-  scale_color_manual(values = c("steelblue4", 'indianred3')) +
-  scale_fill_manual(values = c("steelblue4", 'indianred3')) +
-  scale_y_continuous(limits = c(28, 87), expand = expansion(add = c(0, 0))) +
-  scale_x_log10(limits = c(0.1, 15),
-                breaks = scales::trans_breaks("log10", function(x) 10^x),
-                labels = scales::trans_format("log10", scales::math_format(10^.x))) +
-  annotation_logticks(sides = "b") +
-  theme_classic(base_size = 10) +
-  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
-  ylab('Haematocrit') +
-  xlab('Testosteron (ng/ml)')
-
-
 
 # merge plots
 p1 + p4 + p7 + 
 p2 + p5 + p8 + 
-p3 + p6 + p9 +
   plot_layout(ncol = 3) +
   plot_annotation(tag_levels = 'a')
 

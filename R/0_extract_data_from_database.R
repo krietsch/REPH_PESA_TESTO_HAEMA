@@ -63,48 +63,12 @@ dc = merge(dc, dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x
 dP = dc[!is.na(T), .(species = 'PESA', ID, date_, caught_time = caught_date_time, bled_time = bled_date_time, 
                      sex = sex_genetic, testo = T, volume, GnRH, haema = hematocrit)]
 
-#-------------------------------------------------------------------------------------------------------------------------
-# SESA data
-#-------------------------------------------------------------------------------------------------------------------------
-
-con = dbcon('jkrietsch', db = 'EXTRA_AVESatBARROW')  
-
-# data
-dt = dbq(con, 'select * FROM 2004_HORMONES')
-dbDisconnect(con)
-
-con = dbcon('jkrietsch', db = 'AVESatBARROW')  
-
-# data
-dc = dbq(con, 'select * FROM CAPTURES')
-ds = dbq(con, 'select * FROM SEX')
-dbDisconnect(con)
-
-# add date
-dt[, date_ := as.Date(date_time)]
-dc[, date_ := as.Date(caught_date_time)]
-
-# exclude NA
-dc = dc[!is.na(ID)]
-ds[, ID := as.integer(ID)]
-ds = ds[!is.na(ID)]
-
-# merge with lab sex
-dc = merge(dc, ds[, .(ID = as.integer(ID), sex)], by = 'ID', all.x = TRUE)
-dc[sex == 1, sex_genetic := 'M']
-dc[sex == 2, sex_genetic := 'F']
-
-# merge with testo
-dc = merge(dc, dt[, .(ID, date_, GnRH = NA, volume = NA, testo = testo_1)], by = c('ID', 'date_'), all.x = TRUE)
-
-dS = dc[!is.na(testo), .(species = 'SESA', ID, date_, caught_time = caught_date_time, bled_time = bled_date_time, 
-                         sex = sex_genetic, testo, volume = NA, GnRH = NA, haema = hematocrit)]
 
 #-------------------------------------------------------------------------------------------------------------------------
 # merge species
 #-------------------------------------------------------------------------------------------------------------------------
 
-d = rbindlist(list(dR, dP, dS))
+d = rbindlist(list(dR, dP))
 d[, year_ := year(date_)]
 
-saveRDS(d, './DATA/REPH_PESA_SESA_testosterone.RDS')
+saveRDS(d, './DATA/REPH_PESA_testosterone.RDS')
