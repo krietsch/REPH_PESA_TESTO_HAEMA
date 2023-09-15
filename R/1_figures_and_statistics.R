@@ -9,7 +9,7 @@
 #' ---
 
 sapply( c('data.table', 'magrittr', 'ggplot2', 'knitr', 'glmmTMB', 'emmeans', 'effects', 'broomExtra',
-          'flextable', 'officer', 'DHARMa', 'ggparl', 'patchwork'),
+          'flextable', 'officer', 'DHARMa', 'ggparl', 'patchwork', 'performance', 'dplyr'),
         require, character.only = TRUE)
 
 # load data
@@ -42,6 +42,31 @@ d[, species := factor(species, levels = c('PESA', 'REPH'))]
 d[, .(min(date_doy), max(date_doy))]
 d[, .(min(testo), max(testo))]
 
+# start word file for ESM
+ESM = read_docx()
+
+# parameter names 
+pn = fread("parname;                                                          parameter
+            (Intercept);                                                      Intercept 
+            speciesREPH;                                                      Species (red phalarope)
+            date_doy;                                                         Day of the year 
+            poly(date_doy, 2)1;                                               Day of the year (linear)
+            poly(date_doy, 2)2;                                               Day of the year (quadratic)
+            sexF;                                                             Sex (female)
+            sexF:date_doy;                                                    Sex (female):Day of the year 
+            testo_log;                                                        Testosterone (logarithmic)
+            GnRH_sampleGnRH-induced;                                          GnRH induced
+            GnRHlow;                                                          Low GnRH concentration
+            speciesREPH:GnRH_sampleGnRH-induced;                              Species (red phalarope):GnRH induced
+            sd__(Intercept);                                                  Random intercept
+            sd__(Intercept)_year_;                                            Random intercept (year)
+            sd__(Intercept)_ID;                                               Random intercept (ID)
+            r2marg;                                                           R² marginal
+            r2cond;                                                           R² conditional
+            
+", sep = ';')
+
+
 #--------------------------------------------------------------------------------------------------------------
 # Between species comparison
 #--------------------------------------------------------------------------------------------------------------
@@ -49,7 +74,7 @@ d[, .(min(testo), max(testo))]
 # exclude GnRH induced samples
 ds = d[is.na(GnRH)]
 
-# subset males
+##### subset males
 dm = ds[sex == 'M']
 
 # sample size
@@ -59,8 +84,9 @@ du = du[, .(N_ind = .N), by = species]
 dms = merge(dms, du, by = 'species')
 dms[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 
-# model
-m <- glmmTMB(testo_log ~ species * poly(date_doy,2) + (1 | year_) + (1 | ID),
+
+# model 
+m <- glmmTMB(testo_log ~ species + poly(date_doy,2) + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
              data = dm,
              control = glmmTMBControl(parallel = 15)
@@ -72,6 +98,44 @@ summary(m)
 # res <-simulateResiduals(m, plot = T)
 # testDispersion(res)
 
+e = effect("species", m, xlevels = 2) |>
+  data.frame() |>
+  setDT()
+
+
+# create clean summary table
+y = tidy(m) |> data.table()
+x = r2(m) |> data.table() 
+
+setnames(x, c('estimate'))
+y[term == 'sd__(Intercept)', term := paste0(term, '_', group)]
+x[, estimate := as.numeric(estimate)]
+x[, term :=  c('r2cond', 'r2marg')]
+y = rbindlist(list(y, x), use.names = TRUE, fill = TRUE)
+y[, row_order := rownames(y) |> as.numeric()]
+y = merge(y, pn, by.x = 'term', by.y = 'parname')
+setorder(y, row_order)
+y = y[, .(Parameter = parameter, Estimate = estimate, SE = std.error, Statistic = statistic, p = p.value)] 
+y = y %>% mutate_if(is.numeric, ~round(., 3)) # round all numeric columns 
+
+# save table in word
+ft = flextable(y) |> autofit()
+ft = bold(ft, bold = TRUE, part = "header")
+ESM = ESM |> body_add_par(paste0('Table S1. LMM males testo')) |>  body_add_par('') |> 
+  body_add_flextable(ft)
+ESM = ESM |> body_add_break(pos = 'after')
+
+
+# model with interaction for plot
+m <- glmmTMB(testo_log ~ species * poly(date_doy,2) + (1 | year_) + (1 | ID),
+             family = gaussian(link = "identity"), 
+             data = dm,
+             control = glmmTMBControl(parallel = 15)
+)
+
+# plot(allEffects(m))
+# summary(m)
+
 # extract season effect from model for plot
 es = effect("species:poly(date_doy, 2)", m, xlevels = 1000) |>
   data.frame() |>
@@ -82,11 +146,6 @@ dr = dm[, .(first_data = min(date_doy), last_data = max(date_doy)), by = species
 es = merge(es, dr, by = c('species'), all.x = TRUE)
 es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
 es = es[in_range == TRUE]
-
-
-e = effect("species", m, xlevels = 2) |>
-  data.frame() |>
-  setDT()
 
 
 
@@ -133,7 +192,7 @@ p3 =
 
 
 
-# subset females
+###### subset females
 df = ds[sex == 'F']
 
 # sample size
@@ -143,34 +202,67 @@ du = du[, .(N_ind = .N), by = species]
 dfs = merge(dfs, du, by = 'species')
 dfs[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 
-# model
+# model 
+m <- glmmTMB(testo_log ~ species + date_doy + (1 | year_) + (1 | ID),
+             family = gaussian(link = "identity"), 
+             data = df,
+             control = glmmTMBControl(parallel = 15)
+)
+
+plot(allEffects(m))
+summary(m)
+
+# res <-simulateResiduals(m, plot = T)
+# testDispersion(res)
+
+e = effect("species", m, xlevels = 2) |>
+  data.frame() |>
+  setDT()
+
+
+# create clean summary table
+y = tidy(m) |> data.table()
+x = r2(m) |> data.table() 
+
+setnames(x, c('estimate'))
+y[term == 'sd__(Intercept)', term := paste0(term, '_', group)]
+x[, estimate := as.numeric(estimate)]
+x[, term :=  c('r2cond', 'r2marg')]
+y = rbindlist(list(y, x), use.names = TRUE, fill = TRUE)
+y[, row_order := rownames(y) |> as.numeric()]
+y = merge(y, pn, by.x = 'term', by.y = 'parname')
+setorder(y, row_order)
+y = y[, .(Parameter = parameter, Estimate = estimate, SE = std.error, Statistic = statistic, p = p.value)] 
+y = y %>% mutate_if(is.numeric, ~round(., 3)) # round all numeric columns 
+
+# save table in word
+ft = flextable(y) |> autofit()
+ft = bold(ft, bold = TRUE, part = "header")
+ESM = ESM |> body_add_par(paste0('Table S2. LMM females testo')) |>  body_add_par('') |> 
+  body_add_flextable(ft)
+ESM = ESM |> body_add_break(pos = 'after')
+
+
+# model with interaction for plot
 m <- glmmTMB(testo_log ~ species * date_doy + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
              data = df,
              control = glmmTMBControl(parallel = 15)
 )
 
-
-plot(allEffects(m))
-summary(m)
-
-# res <-simulateResiduals(m, plot = T)
-# testDispersion(res) 
+# plot(allEffects(m))
+# summary(m)
 
 # extract season effect from model for plot
-es = effect("species:date_doy", m, xlevels = 1000) |>
+es = effect("species:poly(date_doy, 2)", m, xlevels = 1000) |>
   data.frame() |>
   setDT()
 
 # subset period with data
-dr = df[, .(first_data = min(date_doy), last_data = max(date_doy)), by = species]
+dr = dm[, .(first_data = min(date_doy), last_data = max(date_doy)), by = species]
 es = merge(es, dr, by = c('species'), all.x = TRUE)
 es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
 es = es[in_range == TRUE]
-
-e = effect("species", m, xlevels = 2) |>
-  data.frame() |>
-  setDT()
 
 
 # plot for females
@@ -264,7 +356,7 @@ dms[, species_sample := paste0(species, '_Baseline')]
 
 
 # model
-m <- glmmTMB(testo_log ~ species * GnRH_sample +  GnRH,
+m <- glmmTMB(testo_log ~ species * GnRH_sample +  GnRH + (1 | ID),
              family = gaussian(link = "identity"), 
              data = dm,
              control = glmmTMBControl(parallel = 15)
@@ -279,6 +371,29 @@ e = effect("species:GnRH_sample", m, xlevels = 2) |>
   setDT()
 
 e[, species_sample := paste0(species, '_', GnRH_sample)]
+
+# create clean summary table
+y = tidy(m) |> data.table()
+x = r2(m) |> data.table() 
+
+setnames(x, c('estimate'))
+y[term == 'sd__(Intercept)', term := paste0(term, '_', group)]
+x[, estimate := as.numeric(estimate)]
+x[, term :=  c('r2cond', 'r2marg')]
+y = rbindlist(list(y, x), use.names = TRUE, fill = TRUE)
+y[, row_order := rownames(y) |> as.numeric()]
+y = merge(y, pn, by.x = 'term', by.y = 'parname')
+setorder(y, row_order)
+y = y[, .(Parameter = parameter, Estimate = estimate, SE = std.error, Statistic = statistic, p = p.value)] 
+y = y %>% mutate_if(is.numeric, ~round(., 3)) # round all numeric columns 
+
+# save table in word
+ft = flextable(y) |> autofit()
+ft = bold(ft, bold = TRUE, part = "header")
+ESM = ESM |> body_add_par(paste0('Table S3. LMM males GnRH')) |>  body_add_par('') |> 
+  body_add_flextable(ft)
+ESM = ESM |> body_add_break(pos = 'after')
+
 
 p1 =
   ggplot() +
@@ -321,7 +436,7 @@ dfs[, sample_size := paste0('N = ', N/2)]
 dfs[, species_sample := paste0(species, '_Baseline')]
 
 # model
-m <- glmmTMB(testo_log ~ species * GnRH_sample +  GnRH,
+m <- glmmTMB(testo_log ~ species * GnRH_sample +  GnRH + (1 | ID),
              family = gaussian(link = "identity"), 
              data = df,
              control = glmmTMBControl(parallel = 15)
@@ -337,6 +452,28 @@ e = effect("species:GnRH_sample", m, xlevels = 2) |>
 
 e[, species_sample := paste0(species, '_', GnRH_sample)]
 
+
+# create clean summary table
+y = tidy(m) |> data.table()
+x = r2(m) |> data.table() 
+
+setnames(x, c('estimate'))
+y[term == 'sd__(Intercept)', term := paste0(term, '_', group)]
+x[, estimate := as.numeric(estimate)]
+x[, term :=  c('r2cond', 'r2marg')]
+y = rbindlist(list(y, x), use.names = TRUE, fill = TRUE)
+y[, row_order := rownames(y) |> as.numeric()]
+y = merge(y, pn, by.x = 'term', by.y = 'parname')
+setorder(y, row_order)
+y = y[, .(Parameter = parameter, Estimate = estimate, SE = std.error, Statistic = statistic, p = p.value)] 
+y = y %>% mutate_if(is.numeric, ~round(., 3)) # round all numeric columns 
+
+# save table in word
+ft = flextable(y) |> autofit()
+ft = bold(ft, bold = TRUE, part = "header")
+ESM = ESM |> body_add_par(paste0('Table S3. LMM females GnRH')) |>  body_add_par('') |> 
+  body_add_flextable(ft)
+ESM = ESM |> body_add_break(pos = 'after')
 
 p2 =
   ggplot() +
@@ -467,6 +604,29 @@ et = et[in_range == TRUE]
 # factor order
 et[, sex := factor(sex, levels = c('M', 'F'))]
 
+# create clean summary table
+y = tidy(m) |> data.table()
+x = r2(m) |> data.table() 
+
+setnames(x, c('estimate'))
+y[term == 'sd__(Intercept)', term := paste0(term, '_', group)]
+x[, estimate := as.numeric(estimate)]
+x[, term :=  c('r2cond', 'r2marg')]
+y = rbindlist(list(y, x), use.names = TRUE, fill = TRUE)
+y[, row_order := rownames(y) |> as.numeric()]
+y = merge(y, pn, by.x = 'term', by.y = 'parname')
+setorder(y, row_order)
+y = y[, .(Parameter = parameter, Estimate = estimate, SE = std.error, Statistic = statistic, p = p.value)] 
+y = y %>% mutate_if(is.numeric, ~round(., 3)) # round all numeric columns 
+
+# save table in word
+ft = flextable(y) |> autofit()
+ft = bold(ft, bold = TRUE, part = "header")
+ESM = ESM |> body_add_par(paste0('Table S4. LMM haematocrit males')) |>  body_add_par('') |> 
+  body_add_flextable(ft)
+ESM = ESM |> body_add_break(pos = 'after')
+
+
 # sex comparision
 p1 =
   ggplot() +
@@ -577,6 +737,28 @@ et = et[in_range == TRUE]
 et[, sex := factor(sex, levels = c('M', 'F'))]
 
 
+# create clean summary table
+y = tidy(m) |> data.table()
+x = r2(m) |> data.table() 
+
+setnames(x, c('estimate'))
+y[term == 'sd__(Intercept)', term := paste0(term, '_', group)]
+x[, estimate := as.numeric(estimate)]
+x[, term :=  c('r2cond', 'r2marg')]
+y = rbindlist(list(y, x), use.names = TRUE, fill = TRUE)
+y[, row_order := rownames(y) |> as.numeric()]
+y = merge(y, pn, by.x = 'term', by.y = 'parname')
+setorder(y, row_order)
+y = y[, .(Parameter = parameter, Estimate = estimate, SE = std.error, Statistic = statistic, p = p.value)] 
+y = y %>% mutate_if(is.numeric, ~round(., 3)) # round all numeric columns 
+
+# save table in word
+ft = flextable(y) |> autofit()
+ft = bold(ft, bold = TRUE, part = "header")
+ESM = ESM |> body_add_par(paste0('Table S5. LMM haematocrit males')) |>  body_add_par('') |> 
+  body_add_flextable(ft)
+ESM = ESM |> body_add_break(pos = 'after')
+
 # sex comparision
 p4 = 
   ggplot() +
@@ -643,4 +825,8 @@ ggsave('./OUTPUTS/FIGURES/haematocrit_species_split.tiff', plot = last_plot(),  
        units = c('mm'), dpi = 'print')
 
 
+
+
+# save word file
+print(ESM, target = "./OUTPUTS/ESM/ESM_testo_analysis.docx")
 
