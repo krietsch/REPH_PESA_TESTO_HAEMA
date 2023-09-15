@@ -102,9 +102,9 @@ ggplot() +
   scale_fill_manual(values = c("steelblue4", 'indianred3')) +
   scale_color_manual(values = c("black", 'black')) +
   geom_text(data = dms, aes(species, Inf, label = sample_size), vjust = 1, size = 2.5) +
-  scale_y_log10(limits = c(0.001, 350),
-                breaks = c(0.001, 0.01, 0.1, 1, 10, 100),
-                labels = c(0.001, 0.01, 0.1, 1, 10, 100)) +
+  scale_y_log10(limits = c(0.01, 350),
+                breaks = c(0.01, 0.1, 1, 10, 100),
+                labels = c(0.01, 0.1, 1, 10, 100)) +
   annotation_logticks(sides = "l") +  
   scale_x_discrete(labels = c("PESA" = "Pectoral sandpiper", "REPH" = "Red phalarope")) +
   theme_classic(base_size = 10) +
@@ -185,9 +185,9 @@ p2 =
   scale_fill_manual(values = c("steelblue4", 'indianred3')) +
   scale_color_manual(values = c("black", 'black')) +
   geom_text(data = dfs, aes(species, Inf, label = sample_size), vjust = 1, size = 2.5) +
-  scale_y_log10(limits = c(0.001, 350),
-                breaks = c(0.001, 0.01, 0.1, 1, 10, 100),
-                labels = c(0.001, 0.01, 0.1, 1, 10, 100)) +
+  scale_y_log10(limits = c(0.01, 350),
+                breaks = c(0.01, 0.1, 1, 10, 100),
+                labels = c(0.01, 0.1, 1, 10, 100)) +
   annotation_logticks(sides = "l") +  
   scale_x_discrete(labels = c("PESA" = "Pectoral sandpiper", "REPH" = "Red phalarope")) +
   theme_classic(base_size = 10) +
@@ -304,7 +304,7 @@ p1 =
                 labels = c(0.01, 0.1, 1, 10)) +
   annotation_logticks(sides = "l") + 
   scale_x_discrete(breaks = c('PESA_Baseline', 'PESA_GnRH-induced', 
-                              'REPH_Baseline', 'REPH-induced'),
+                              'REPH_Baseline', 'REPH_GnRH-induced'),
                    labels = c('Baseline', 'GnRH', 'Baseline', 'GnRH')) +
   theme_classic(base_size = 10) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5, size = 10, face = "bold")) +
@@ -361,8 +361,8 @@ p2 =
                 breaks = c(0.01, 0.1, 1, 10),
                 labels = c(0.01, 0.1, 1, 10)) +
   annotation_logticks(sides = "l") +  
-  scale_x_discrete(breaks = c('Pectoral sandpiper_Baseline', 'Pectoral sandpiper_GnRH-induced', 
-                              'Red phalarope_Baseline', 'Red phalarope_GnRH-induced'),
+  scale_x_discrete(breaks = c('PESA_Baseline', 'PESA_GnRH-induced', 
+                              'REPH_Baseline', 'REPH_GnRH-induced'),
                    labels = c('Baseline', 'GnRH', 'Baseline', 'GnRH')) +
   theme_classic(base_size = 10) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5, size = 10, face = "bold")) +
