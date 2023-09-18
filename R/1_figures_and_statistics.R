@@ -314,8 +314,8 @@ p1 + p2 + p3 + p4 +
   plot_layout(ncol = 2) +
   plot_annotation(tag_levels = 'a')
 
-ggsave('./OUTPUTS/FIGURES/testo_by_sex_and_species.tiff', plot = last_plot(),  width = 177, height = 177,
-       units = c('mm'), dpi = 'print')
+# ggsave('./OUTPUTS/FIGURES/testo_by_sex_and_species.tiff', plot = last_plot(),  width = 177, height = 177,
+#        units = c('mm'), dpi = 'print')
 
 #--------------------------------------------------------------------------------------------------------------
 # GnRH experiment
@@ -512,8 +512,8 @@ p1 + p2 +
   plot_annotation(tag_levels = 'a')
 
 
-ggsave('./OUTPUTS/FIGURES/testo_GnRH.tiff', plot = last_plot(),  width = 177, height = 88,
-       units = c('mm'), dpi = 'print')
+# ggsave('./OUTPUTS/FIGURES/testo_GnRH.tiff', plot = last_plot(),  width = 177, height = 88,
+#        units = c('mm'), dpi = 'print')
 
 #--------------------------------------------------------------------------------------------------------------
 # Testosterone influence on haematocrit
@@ -559,7 +559,7 @@ dsss = merge(dsss, du, by = 'sex')
 dsss[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 
 # model
-m <- glmmTMB(haema ~ sex * date_doy + testo_log  + (1 | year_) + (1 | ID),
+m <- glmmTMB(haema ~ sex * date_doy + sex * testo_log  + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
              data = dss,
              control = glmmTMBControl(parallel = 15)
