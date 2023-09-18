@@ -37,6 +37,10 @@ d[, .N, by = .(species, year_)]
 
 # factor order
 d[, species := factor(species, levels = c('PESA', 'REPH'))]
+d[, sex := factor(sex, levels = c('M', 'F'))]
+
+# as numeric
+d[, haema := as.numeric(haema)]
 
 # min max scale
 d[, .(min(date_doy), max(date_doy))]
@@ -518,12 +522,6 @@ p1 + p2 +
 #--------------------------------------------------------------------------------------------------------------
 # Testosterone influence on haematocrit
 #--------------------------------------------------------------------------------------------------------------
-
-# as numeric
-d[, haema := as.numeric(haema)]
-
-# factor order
-d[, sex := factor(sex, levels = c('M', 'F'))]
 
 # exclude GnRH induced samples
 ds = d[is.na(GnRH)]

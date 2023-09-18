@@ -29,7 +29,7 @@ dc[, date_ := as.Date(caught_time)]
 
 dc = merge(dc[, !c('GnRH'), with = FALSE], dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
 
-dR = dc[!is.na(T), .(species = 'REPH', ID, date_, caught_time, bled_time, sex = sex, 
+dR = dc[!is.na(T), .(species = 'REPH', ID, date_, caught_time, bled_time, sex = sex, tarsus, weight,
                      testo = T, volume, GnRH, haema)]
 
 #-------------------------------------------------------------------------------------------------------------------------
@@ -61,7 +61,7 @@ dc[, date_ := as.Date(caught_time)]
 dc = merge(dc, dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
 
 dP = dc[!is.na(T), .(species = 'PESA', ID, date_, caught_time = caught_date_time, bled_time = bled_date_time, 
-                     sex = sex_genetic, testo = T, volume, GnRH, haema = hematocrit)]
+                     sex = sex_genetic, tarsus, weight, testo = T, volume, GnRH, haema = hematocrit)]
 
 
 #-------------------------------------------------------------------------------------------------------------------------
