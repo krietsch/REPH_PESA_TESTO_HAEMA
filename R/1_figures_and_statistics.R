@@ -70,6 +70,53 @@ pn = fread("parname;                                                          pa
             
 ", sep = ';')
 
+#--------------------------------------------------------------------------------------------------------------
+# Caught time till bleeding
+#--------------------------------------------------------------------------------------------------------------
+
+# by species 
+d[!is.na(diff_caught_bled), 
+  .(mean = mean(diff_caught_bled), sd = sd(diff_caught_bled), 
+    min = min(diff_caught_bled), max = max(diff_caught_bled)), by = species]
+
+p1 = 
+ggplot(data = d[is.na(GnRH)]) +
+  geom_histogram(aes(diff_caught_bled, fill = species)) +
+  scale_fill_manual(values = c("steelblue4", 'indianred3')) +
+  theme_classic(base_size = 12) +
+  ylab('Count') +
+  xlab('Time (min')
+
+# subset birds with GnRH 
+IDe = d[!is.na(GnRH)]$ID
+ds = d[ID %in% IDe]
+
+# exclude third testo sample
+ds = ds[!(ID == 270170318	& date_ == '2017-06-01')]
+
+# by species 
+ds[!is.na(diff_caught_bled) & is.na(GnRH), 
+   .(mean = mean(diff_caught_bled), sd = sd(diff_caught_bled), 
+     min = min(diff_caught_bled), max = max(diff_caught_bled)), by = species]
+
+p2 = 
+ggplot(data = ds[!is.na(diff_caught_bled) & is.na(GnRH)]) +
+  geom_histogram(aes(diff_caught_bled, fill = species)) +
+  scale_fill_manual(values = c("steelblue4", 'indianred3')) +
+  theme_classic(base_size = 12) +
+  ylab('Count') +
+  xlab('Time (min')
+
+
+
+# merge plots
+p1 + p2 +
+  plot_layout(nrow = 2) +
+  plot_annotation(tag_levels = 'a')
+
+
+ggsave('./OUTPUTS/FIGURES/diff_caught_bled.tiff', plot = last_plot(),  width = 177, height = 177,
+       units = c('mm'), dpi = 'print')
 
 #--------------------------------------------------------------------------------------------------------------
 # Between species comparison
