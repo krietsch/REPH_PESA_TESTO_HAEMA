@@ -26,8 +26,14 @@ dc = merge(dc, ds[, .(ID = as.integer(ID), sex)], by = 'ID', all.x = TRUE)
 # add date
 dt[, date_ := as.Date(date_)]
 dc[, date_ := as.Date(caught_time)]
+dc[, caught_time := as.POSIXct(caught_time)]
+dc[, bled_time := as.POSIXct(bled_time)]
 
 dc = merge(dc[, !c('GnRH'), with = FALSE], dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
+
+# exclude dead or insured birds
+dc[is.na(dead), dead := 0]
+dc = dc[dead != 1]
 
 dR = dc[!is.na(T), .(species = 'REPH', ID, date_, caught_time, bled_time, sex = sex, tarsus, weight,
                      testo = T, volume, GnRH, haema)]
@@ -49,16 +55,32 @@ dc = merge(dc, ds[, .(ID = as.integer(ID), sex)], by = 'ID', all.x = TRUE)
 dc[sex == 1, sex_genetic := 'M']
 dc[sex == 2, sex_genetic := 'F']
 
-setnames(dc, c('start_capture_date_time'), c('caught_time'))
 dc[, sex_observed := as.character(sex_observed)]
 dc[sex_observed == 1, sex_observed := 'M']
 dc[sex_observed == 2, sex_observed := 'F']
 
 # add date
+dc[is.na(start_capture_date_time), start_capture_date_time := caught_date_time]
 dt[, date_ := as.Date(date_)]
-dc[, date_ := as.Date(caught_time)]
+dc[, date_ := as.Date(start_capture_date_time)]
+
 
 dc = merge(dc, dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
+
+# exclude dead or insured birds
+dc[is.na(dead), dead := 0]
+dc = dc[dead != 1]
+
+# NA if caught equals bleed time & > 40 min
+dc[caught_date_time == bled_date_time, bled_date_time := NA]
+
+# bleeding time
+dc[, caught_date_time := as.POSIXct(caught_date_time)]
+dc[bled_date_time == '0000-00-00 00:00:00', bled_date_time := NA]
+dc[, bled_date_time := as.POSIXct(bled_date_time)]
+dc[, diff_caught_bled := difftime(bled_date_time, caught_date_time, units = 'mins') %>% as.numeric]
+dc[diff_caught_bled > 40, bled_date_time := NA]
+
 
 dP = dc[!is.na(T), .(species = 'PESA', ID, date_, caught_time = caught_date_time, bled_time = bled_date_time, 
                      sex = sex_genetic, tarsus, weight, testo = T, volume, GnRH, haema = hematocrit)]
