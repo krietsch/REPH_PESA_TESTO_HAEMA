@@ -74,13 +74,18 @@ pn = fread("parname;                                                          pa
 # Caught time till bleeding
 #--------------------------------------------------------------------------------------------------------------
 
+# together
+d[!is.na(diff_caught_bled), 
+  .(mean = mean(diff_caught_bled), sd = sd(diff_caught_bled), 
+    min = min(diff_caught_bled), max = max(diff_caught_bled), .N)]
+
 # by species 
 d[!is.na(diff_caught_bled), 
   .(mean = mean(diff_caught_bled), sd = sd(diff_caught_bled), 
-    min = min(diff_caught_bled), max = max(diff_caught_bled)), by = species]
+    min = min(diff_caught_bled), max = max(diff_caught_bled), .N), by = species]
 
 p1 = 
-ggplot(data = d[is.na(GnRH)]) +
+ggplot(data = d[is.na(GnRH) & !is.na(T)]) +
   geom_histogram(aes(diff_caught_bled, fill = species)) +
   scale_fill_manual(values = c("steelblue4", 'indianred3')) +
   theme_classic(base_size = 12) +
@@ -94,10 +99,15 @@ ds = d[ID %in% IDe]
 # exclude third testo sample
 ds = ds[!(ID == 270170318	& date_ == '2017-06-01')]
 
+# together
+ds[!is.na(diff_caught_bled) & is.na(GnRH), 
+  .(mean = mean(diff_caught_bled), sd = sd(diff_caught_bled), 
+    min = min(diff_caught_bled), max = max(diff_caught_bled), .N)]
+
 # by species 
 ds[!is.na(diff_caught_bled) & is.na(GnRH), 
    .(mean = mean(diff_caught_bled), sd = sd(diff_caught_bled), 
-     min = min(diff_caught_bled), max = max(diff_caught_bled)), by = species]
+     min = min(diff_caught_bled), max = max(diff_caught_bled), .N), by = species]
 
 p2 = 
 ggplot(data = ds[!is.na(diff_caught_bled) & is.na(GnRH)]) +
@@ -115,8 +125,9 @@ p1 + p2 +
   plot_annotation(tag_levels = 'a')
 
 
-ggsave('./OUTPUTS/FIGURES/diff_caught_bled.tiff', plot = last_plot(),  width = 177, height = 177,
-       units = c('mm'), dpi = 'print')
+# ggsave('./OUTPUTS/FIGURES/diff_caught_bled.tiff', plot = last_plot(),  width = 177, height = 177,
+#        units = c('mm'), dpi = 'print')
+
 
 #--------------------------------------------------------------------------------------------------------------
 # Between species comparison
@@ -604,7 +615,7 @@ dsss = merge(dsss, du, by = 'sex')
 dsss[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 
 # model
-m <- glmmTMB(haema ~ sex * date_doy + sex * testo_log  + (1 | year_) + (1 | ID),
+m <- glmmTMB(haema ~ sex * date_doy + sex * testo_log + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
              data = dss,
              control = glmmTMBControl(parallel = 15)
