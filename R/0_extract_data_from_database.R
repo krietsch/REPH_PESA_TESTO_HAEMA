@@ -8,9 +8,9 @@
 sapply( c('data.table', 'sdb', 'magrittr', 'ggplot2', 'DBI'),
         require, character.only = TRUE)
 
-#-------------------------------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------------
 # REPH data
-#-------------------------------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------------
 
 con = dbcon('jkrietsch', db = 'REPHatBARROW')  
 
@@ -29,7 +29,8 @@ dc[, date_ := as.Date(caught_time)]
 dc[, caught_time := as.POSIXct(caught_time)]
 dc[, bled_time := as.POSIXct(bled_time)]
 
-dc = merge(dc[, !c('GnRH'), with = FALSE], dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
+dc = merge(dc[, !c('GnRH'), with = FALSE], dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), 
+           all.x = TRUE)
 
 # exclude dead or insured birds
 dc[is.na(dead), dead := 0]
@@ -38,9 +39,9 @@ dc = dc[dead != 1]
 dR = dc[!is.na(T), .(species = 'REPH', ID, date_, caught_time, bled_time, sex = sex, tarsus, weight,
                      testo = T, volume, GnRH, haema)]
 
-#-------------------------------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------------
 # PESA data
-#-------------------------------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------------
 
 con = dbcon('jkrietsch', db = 'PESAatBARROW')  
 
@@ -79,18 +80,38 @@ dc[, caught_date_time := as.POSIXct(caught_date_time)]
 dc[bled_date_time == '0000-00-00 00:00:00', bled_date_time := NA]
 dc[, bled_date_time := as.POSIXct(bled_date_time)]
 dc[, diff_caught_bled := difftime(bled_date_time, caught_date_time, units = 'mins') %>% as.numeric]
-dc[diff_caught_bled > 40, bled_date_time := NA]
+dc[diff_caught_bled > 30, bled_date_time := NA] # excluded mistakes in the field
 
 
 dP = dc[!is.na(T), .(species = 'PESA', ID, date_, caught_time = caught_date_time, bled_time = bled_date_time, 
                      sex = sex_genetic, tarsus, weight, testo = T, volume, GnRH, haema = hematocrit)]
 
 
-#-------------------------------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------------
 # merge species
-#-------------------------------------------------------------------------------------------------------------------------
+#--------------------------------------------------------------------------------------------------------------
 
 d = rbindlist(list(dR, dP))
 d[, year_ := year(date_)]
+
+# check outliers
+ggplot(data = d) +
+  geom_histogram(aes(tarsus, fill = species))
+
+ggplot(data = d[species == 'PESA']) +
+  geom_histogram(aes(tarsus, fill = sex))
+
+ggplot(data = d[species == 'REPH']) +
+  geom_histogram(aes(tarsus, fill = sex))
+
+ggplot(data = d) +
+  geom_histogram(aes(weight, fill = species))
+
+ggplot(data = d[species == 'PESA']) +
+  geom_histogram(aes(weight, fill = sex))
+
+ggplot(data = d[species == 'REPH']) +
+  geom_histogram(aes(weight, fill = sex))
+
 
 saveRDS(d, './DATA/REPH_PESA_testosterone.RDS')
