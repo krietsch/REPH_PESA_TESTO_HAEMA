@@ -9,7 +9,7 @@
 #' ---
 
 sapply( c('data.table', 'magrittr', 'ggplot2', 'knitr', 'glmmTMB', 'emmeans', 'effects', 'broomExtra',
-          'flextable', 'officer', 'DHARMa', 'ggparl', 'patchwork', 'performance', 'dplyr'),
+          'flextable', 'officer', 'DHARMa', 'ggparl', 'patchwork', 'performance', 'dplyr', 'foreach'),
         require, character.only = TRUE)
 
 # load data
@@ -46,14 +46,14 @@ d[, haema := as.numeric(haema)]
 d[, .(min(date_doy), max(date_doy))]
 d[, .(min(testo), max(testo))]
 
-# relative tarsus
-d[, tarus_mean_ID := mean(tarsus, na.rm = TRUE), by = ID]
-d[, tarus_mean_sp := mean(tarus_mean_ID, na.rm = TRUE), by = .(species, sex)]
-d[, tarsus_rel := tarsus - tarus_mean_sp]
-
-# relative weight
-d[, weight_mean_sp := mean(weight, na.rm = TRUE), by = .(species, sex)]
-d[, weight_rel := weight - weight_mean_sp]
+# # relative tarsus
+# d[, tarus_mean_ID := mean(tarsus, na.rm = TRUE), by = ID]
+# d[, tarus_mean_sp := mean(tarus_mean_ID, na.rm = TRUE), by = .(species, sex)]
+# d[, tarsus_rel := tarsus - tarus_mean_sp]
+# 
+# # relative weight
+# d[, weight_mean_sp := mean(weight, na.rm = TRUE), by = .(species, sex)]
+# d[, weight_rel := weight - weight_mean_sp]
 
 # start word file for ESM
 ESM = read_docx()
@@ -143,6 +143,36 @@ p1 + p2 +
 # ggsave('./OUTPUTS/FIGURES/diff_caught_bled.tiff', plot = last_plot(),  width = 177, height = 177,
 #        units = c('mm'), dpi = 'print')
 
+#--------------------------------------------------------------------------------------------------------------
+# Scaled mass index (Peig and Green, 2009)
+#--------------------------------------------------------------------------------------------------------------
+
+# mean by ID
+dID = unique(d[, wing_mean_ID := mean(wing, na.rm = TRUE), by = ID], by = 'ID')
+
+# mean wing length by species and sex
+dPop = dID[, .(wing_mean_pop = mean(wing_mean_ID, na.rm = TRUE)), by = .(species, sex)]
+
+# slope for each category
+foreach(i = 1:nrow(dPop)) %do% {
+
+  ds = d[species == dPop[i, ]$species & sex == dPop[i, ]$sex] # subset 
+  b_msa_ = coef(sma(log(ds$weight) ~ log(ds$wing)))[2]
+  dPop[species == dPop[i, ]$species & sex == dPop[i, ]$sex, b_msa := b_msa_]
+
+}
+
+# merge with all data
+d = merge(d, dPop, by = c('species', 'sex'))
+
+# scaled mass index for each observation
+d[, smi := weight * (wing_mean_pop / wing_mean_ID) ^ b_msa]
+
+# z transformed by species and sex
+d[, smi_z := scale(smi), by = .(species, sex)]
+
+ggplot(data = d) +
+  geom_boxplot(aes(smi_z, species))
 
 #--------------------------------------------------------------------------------------------------------------
 # Between species comparison
@@ -152,7 +182,7 @@ p1 + p2 +
 ds = d[is.na(GnRH)]
 
 ##### subset males
-dm = ds[sex == 'M']
+dm = ds[sex == 'F']
 
 # sample size
 dms = dm[, .N, by = species]
@@ -163,11 +193,39 @@ dms[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 
 
 # model 
-m <- glmmTMB(testo_log ~ species + poly(date_doy, 2) + tarsus_rel + species * weight_rel + (1 | year_) + (1 | ID),
+m <- glmmTMB(testo_log ~ species + poly(date_doy, 2) + smi_z*species + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
              data = dm,
              control = glmmTMBControl(parallel = 15)
 )
+
+
+
+dm = ds[sex == 'F' & species == 'REPH']
+
+m <- glmmTMB(testo_log ~ poly(date_doy, 2) + smi_z + (1 | year_) + (1 | ID),
+             family = gaussian(link = "identity"), 
+             data = dm,
+             control = glmmTMBControl(parallel = 15)
+)
+
+
+
+dm = ds[sex == 'M' & species == 'PESA']
+
+m <- glmmTMB(testo_log ~ poly(date_doy, 2) + smi_z + (1 | year_) + (1 | ID),
+             family = gaussian(link = "identity"), 
+             data = dm,
+             control = glmmTMBControl(parallel = 15)
+)
+
+
+
+
+
+
+
+
 
 plot(allEffects(m))
 summary(m)
