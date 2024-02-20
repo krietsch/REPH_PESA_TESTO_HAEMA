@@ -36,8 +36,8 @@ dc = merge(dc[, !c('GnRH'), with = FALSE], dt[, .(ID, date_, GnRH, volume, T)], 
 dc[is.na(dead), dead := 0]
 dc = dc[dead != 1]
 
-dR = dc[!is.na(T), .(species = 'REPH', ID, date_, caught_time, bled_time, sex = sex, tarsus, weight,
-                     testo = T, volume, GnRH, haema)]
+dR = dc[!is.na(T), .(species = 'REPH', ID, date_, caught_time, bled_time, sex = sex, tarsus, wing, 
+                     weight, testo = T, volume, GnRH, haema)]
 
 #--------------------------------------------------------------------------------------------------------------
 # PESA data
@@ -82,9 +82,11 @@ dc[, bled_date_time := as.POSIXct(bled_date_time)]
 dc[, diff_caught_bled := difftime(bled_date_time, caught_date_time, units = 'mins') %>% as.numeric]
 dc[diff_caught_bled > 30, bled_date_time := NA] # excluded mistakes in the field
 
+# remove unrealistic measure 
+dc[ID == 250103853, wing := NA]
 
 dP = dc[!is.na(T), .(species = 'PESA', ID, date_, caught_time = caught_date_time, bled_time = bled_date_time, 
-                     sex = sex_genetic, tarsus, weight, testo = T, volume, GnRH, haema = hematocrit)]
+                     sex = sex_genetic, tarsus, wing, weight, testo = T, volume, GnRH, haema = hematocrit)]
 
 
 #--------------------------------------------------------------------------------------------------------------
@@ -95,6 +97,8 @@ d = rbindlist(list(dR, dP))
 d[, year_ := year(date_)]
 
 # check outliers
+
+# tarsus
 ggplot(data = d) +
   geom_histogram(aes(tarsus, fill = species))
 
@@ -104,6 +108,17 @@ ggplot(data = d[species == 'PESA']) +
 ggplot(data = d[species == 'REPH']) +
   geom_histogram(aes(tarsus, fill = sex))
 
+# wing
+ggplot(data = d) +
+  geom_histogram(aes(wing, fill = species))
+
+ggplot(data = d[species == 'PESA']) +
+  geom_histogram(aes(wing, fill = sex))
+
+ggplot(data = d[species == 'REPH']) +
+  geom_histogram(aes(wing, fill = sex))
+
+# weight
 ggplot(data = d) +
   geom_histogram(aes(weight, fill = species))
 
