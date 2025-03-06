@@ -10,51 +10,53 @@ sapply( c('data.table', 'sdb','foreach', 'wadeR', 'sdbvis', 'ggplot2'),
 # REPH within season data
 #-------------------------------------------------------------------------------------------------------------------------
 
-con = dbcon('jkrietsch', db = 'REPHatBARROW')  
+# con = dbcon('jkrietsch', db = 'REPHatBARROW')  
+# 
+# # data
+# dc = dbq(con, 'select * FROM CAPTURES')
+# dt = dbq(con, 'select * FROM TESTO')
+# dbDisconnect(con)
+# 
+# # add date
+# dt[, date_ := as.Date(date_)]
+# dc[, date_ := as.Date(caught_time)]
+# 
+# dc = merge(dc[, !c('GnRH'), with = FALSE], dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
 
-# data
-dc = dbq(con, 'select * FROM CAPTURES')
-dt = dbq(con, 'select * FROM TESTO')
-dbDisconnect(con)
-
-# add date
-dt[, date_ := as.Date(date_)]
-dc[, date_ := as.Date(caught_time)]
-
-dc = merge(dc[, !c('GnRH'), with = FALSE], dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
-
+# load data
+d = readRDS('./DATA/REPH_PESA_testosterone.RDS')
 
 # exclude samples with to small volume
-d = dc[is.na(GnRH) & !is.na(T)] # excludes a lot of samples!
+# d = dc[is.na(GnRH) & !is.na(T)] # excludes a lot of samples!
 d[, v20 := ifelse(min(volume) > 20, TRUE, FALSE), by = ID]
-# d = d[log(T) > 2.5]
+# d = d[log(testo) > 2.5]
 
 # create date year
 d[, date_y := as.POSIXct(paste0('2020-', format(date_, format = '%m-%d')))]
 
 # plot data
-
-# outlier with big volume - dead birds?
 ggplot(d) +
-  geom_point(aes(date_, log(T), color = volume)) +
+  geom_point(aes(date_y, log(testo), color = as.character(year_))) +
+  geom_smooth(aes(date_y, log(testo), color = as.character(year_))) +
+  theme_classic(base_size = 18) +
+  facet_wrap(~species + sex)
+
+ggplot(d) +
+  geom_boxplot(aes(sex_observed, log(testo))) +
   theme_classic(base_size = 18)
 
 ggplot(d) +
-  geom_boxplot(aes(sex_observed, log(T))) +
+  geom_boxplot(aes(paste0(sex_observed, year_), log(testo))) +
   theme_classic(base_size = 18)
 
 ggplot(d) +
-  geom_boxplot(aes(paste0(sex_observed, year_), log(T))) +
-  theme_classic(base_size = 18)
-
-ggplot(d) +
-  geom_point(aes(date_y, log(T), color = sex_observed)) +
+  geom_point(aes(date_y, log(testo), color = sex_observed)) +
   theme_classic(base_size = 18)
 
 ggplot() +
-  geom_point(data = d[date_y < as.Date('2020-07-01')], aes(date_y, log(T), color = sex_observed)) +
-  geom_smooth(data = d[sex_observed == 'M' & date_y < as.Date('2020-07-01')], aes(date_y, log(T)), method = 'lm', colour = 'black') +
-  geom_smooth(data = d[sex_observed == 'F' & date_y < as.Date('2020-07-01')], aes(date_y, log(T)), method = 'lm', colour = 'black') +
+  geom_point(data = d[date_y < as.Date('2020-07-01')], aes(date_y, log(testo), color = sex_observed)) +
+  geom_smooth(data = d[sex_observed == 'M' & date_y < as.Date('2020-07-01')], aes(date_y, log(testo)), method = 'lm', colour = 'black') +
+  geom_smooth(data = d[sex_observed == 'F' & date_y < as.Date('2020-07-01')], aes(date_y, log(testo)), method = 'lm', colour = 'black') +
   scale_color_manual(name = 'Sex', values = c('F' = 'firebrick3', 'M' = 'dodgerblue3')) +
   labs(x = 'Date', y = 'Log testosteron (ng/ml)') +
   theme_classic()
@@ -65,29 +67,29 @@ dR = d[, .(species = 'REPH', year_, date_, date_y, v20, sex_observed, T)]
 # PESA within season data
 #-------------------------------------------------------------------------------------------------------------------------
 
-con = dbcon('jkrietsch', db = 'PESAatBARROW')  
-
-# data
-dc = dbq(con, 'select * FROM CAPTURES')
-dt = dbq(con, 'select * FROM TESTO')
-dbDisconnect(con)
-
-setnames(dc, c('start_capture_date_time'), c('caught_time'))
-dc[, sex_observed := as.character(sex_observed)]
-dc[sex_observed == 1, sex_observed := 'M']
-dc[sex_observed == 2, sex_observed := 'F']
-
-# add date
-dt[, date_ := as.Date(date_)]
-dc[, date_ := as.Date(caught_time)]
-
-dc = merge(dc, dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
+# con = dbcon('jkrietsch', db = 'PESAatBARROW')  
+# 
+# # data
+# dc = dbq(con, 'select * FROM CAPTURES')
+# dt = dbq(con, 'select * FROM TESTO')
+# dbDisconnect(con)
+# 
+# setnames(dc, c('start_capture_date_time'), c('caught_time'))
+# dc[, sex_observed := as.character(sex_observed)]
+# dc[sex_observed == 1, sex_observed := 'M']
+# dc[sex_observed == 2, sex_observed := 'F']
+# 
+# # add date
+# dt[, date_ := as.Date(date_)]
+# dc[, date_ := as.Date(caught_time)]
+# 
+# dc = merge(dc, dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
 
 # exclude samples with to small volume
-d = dc[is.na(GnRH) & !is.na(T)] 
+# d = dc[is.na(GnRH) & !is.na(T)] 
 d[is.na(volume), v20 := TRUE] # not known
 d[!is.na(volume), v20 := ifelse(min(volume) > 20, TRUE, FALSE), by = ID]
-# d = d[log(T) > 2.5]
+# d = d[log(testo) > 2.5]
 
 # create date year
 d[, date_y := as.POSIXct(paste0('2020-', format(date_, format = '%m-%d')))]
@@ -96,25 +98,25 @@ d[, date_y := as.POSIXct(paste0('2020-', format(date_, format = '%m-%d')))]
 
 # outlier with big volume - dead birds?
 ggplot(d) +
-  geom_point(aes(date_, log(T), color = volume)) +
+  geom_point(aes(date_, log(testo), color = volume)) +
   theme_classic(base_size = 18)
 
 ggplot(d) +
-  geom_boxplot(aes(sex_observed, log(T))) +
+  geom_boxplot(aes(sex_observed, log(testo))) +
   theme_classic(base_size = 18)
 
 ggplot(d) +
-  geom_boxplot(aes(paste0(sex_observed, year_), log(T))) +
+  geom_boxplot(aes(paste0(sex_observed, year_), log(testo))) +
   theme_classic(base_size = 18)
 
 ggplot(d) +
-  geom_point(aes(date_y, log(T), color = sex_observed)) +
+  geom_point(aes(date_y, log(testo), color = sex_observed)) +
   theme_classic(base_size = 18)
 
 ggplot() +
-  geom_point(data = d[date_y < as.Date('2020-07-01')], aes(date_y, log(T), color = sex_observed)) +
-  geom_smooth(data = d[sex_observed == 'M' & date_y < as.Date('2020-07-01')], aes(date_y, log(T)), method = 'lm', colour = 'black') +
-  geom_smooth(data = d[sex_observed == 'F' & date_y < as.Date('2020-07-01')], aes(date_y, log(T)), method = 'lm', colour = 'black') +
+  geom_point(data = d[date_y < as.Date('2020-07-01')], aes(date_y, log(testo), color = sex_observed)) +
+  geom_smooth(data = d[sex_observed == 'M' & date_y < as.Date('2020-07-01')], aes(date_y, log(testo)), method = 'lm', colour = 'black') +
+  geom_smooth(data = d[sex_observed == 'F' & date_y < as.Date('2020-07-01')], aes(date_y, log(testo)), method = 'lm', colour = 'black') +
   scale_color_manual(name = 'Sex', values = c('F' = 'firebrick3', 'M' = 'dodgerblue3')) +
   labs(x = 'Date', y = 'Log testosteron (ng/ml)') +
   theme_classic()
@@ -163,9 +165,9 @@ d = rbind(dR, dP)
 
 p = 
 ggplot() +
-  geom_point(data = d[date_y < as.Date('2020-07-01')], aes(date_y, log(T), color = sex_observed)) +
-  geom_smooth(data = d[sex_observed == 'M' & date_y < as.Date('2020-07-01')], aes(date_y, log(T)), method = 'lm', colour = 'black') +
-  geom_smooth(data = d[sex_observed == 'F' & date_y < as.Date('2020-07-01')], aes(date_y, log(T)), method = 'lm', colour = 'black') +
+  geom_point(data = d[date_y < as.Date('2020-07-01')], aes(date_y, log(testo), color = sex_observed)) +
+  geom_smooth(data = d[sex_observed == 'M' & date_y < as.Date('2020-07-01')], aes(date_y, log(testo)), method = 'lm', colour = 'black') +
+  geom_smooth(data = d[sex_observed == 'F' & date_y < as.Date('2020-07-01')], aes(date_y, log(testo)), method = 'lm', colour = 'black') +
   scale_color_manual(name = 'Sex', values = c('F' = 'firebrick3', 'M' = 'dodgerblue3')) +
   labs(x = 'Date', y = 'Log testosteron (ng/ml)') +
   theme_bw(base_size = 24) +
@@ -182,9 +184,9 @@ d = d[v20 == TRUE]
 
 p = 
   ggplot() +
-  geom_point(data = d[date_y < as.Date('2020-07-01')], aes(date_y, log(T), color = sex_observed)) +
-  geom_smooth(data = d[sex_observed == 'M' & date_y < as.Date('2020-07-01')], aes(date_y, log(T)), method = 'lm', colour = 'black') +
-  geom_smooth(data = d[sex_observed == 'F' & date_y < as.Date('2020-07-01')], aes(date_y, log(T)), method = 'lm', colour = 'black') +
+  geom_point(data = d[date_y < as.Date('2020-07-01')], aes(date_y, log(testo), color = sex_observed)) +
+  geom_smooth(data = d[sex_observed == 'M' & date_y < as.Date('2020-07-01')], aes(date_y, log(testo)), method = 'lm', colour = 'black') +
+  geom_smooth(data = d[sex_observed == 'F' & date_y < as.Date('2020-07-01')], aes(date_y, log(testo)), method = 'lm', colour = 'black') +
   scale_color_manual(name = 'Sex', values = c('F' = 'firebrick3', 'M' = 'dodgerblue3')) +
   labs(x = 'Date', y = 'Log testosteron (ng/ml)') +
   theme_bw(base_size = 24) +

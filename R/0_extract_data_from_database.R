@@ -32,7 +32,7 @@ dc[, bled_time := as.POSIXct(bled_time)]
 dc = merge(dc[, !c('GnRH'), with = FALSE], dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), 
            all.x = TRUE)
 
-# exclude dead or insured birds
+# exclude dead or injured birds
 dc[is.na(dead), dead := 0]
 dc = dc[dead != 1]
 
@@ -68,7 +68,7 @@ dc[, date_ := as.Date(start_capture_date_time)]
 
 dc = merge(dc, dt[, .(ID, date_, GnRH, volume, T)], by = c('ID', 'date_'), all.x = TRUE)
 
-# exclude dead or insured birds
+# exclude dead or injured birds
 dc[is.na(dead), dead := 0]
 dc = dc[dead != 1]
 
