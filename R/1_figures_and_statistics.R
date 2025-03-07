@@ -8,166 +8,108 @@
 #'      highlight: tango
 #' ---
 
+#-------------------------------------------------------------------------------
+# Load packages and data
+#-------------------------------------------------------------------------------
+
+# packages
 sapply( c('data.table', 'magrittr', 'ggplot2', 'knitr', 'glmmTMB', 'emmeans', 'effects', 'broomExtra',
           'flextable', 'officer', 'DHARMa', 'ggparl', 'patchwork', 'performance', 'dplyr', 'foreach'),
         require, character.only = TRUE)
 
 # load data
-d = readRDS('./DATA/REPH_PESA_testosterone.RDS')
+d <- fread("./DATA/REPH_PESA_testo_haema.csv", yaml = TRUE)
 
 # Lines to run to create html output
 opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
-# rmarkdown::render('./R/1_figures_and_statistics.R', output_dir = './OUTPUTS/R_COMPILED')
+# rmarkdown::render(
+#   "./R/1_figures_and_statistics.R",
+#   output_dir = "./OUTPUTS/R_COMPILED"
+# )
 
-d[, testo := testo/1000] # pg/ml to ng/ml
+#-------------------------------------------------------------------------------
+# Prepare data for analysis
+#-------------------------------------------------------------------------------
+
+# testo pg/ml to ng/ml
+d[, testo := testo / 1000] 
 d[, testo_log := log10(testo)]
 
 # bleeding time
-d[, caught_time := as.POSIXct(caught_time)]
-d[, bled_time := as.POSIXct(bled_time)]
-d[, diff_caught_bled := difftime(bled_time, caught_time, units = 'mins') %>% as.numeric]
+d[, diff_caught_bled := difftime(bled_time, caught_time, units = 'mins') |> 
+    as.numeric()]
 
 # data as Julian
 d[, date_doy := yday(date_)]
 
 # year as character
 d[, year_ := as.character(year_)]
-
 d[, .N, by = .(species, year_)]
 
 # factor order
-d[, species := factor(species, levels = c('PESA', 'REPH'))]
-d[, sex := factor(sex, levels = c('M', 'F'))]
-
-# as numeric
-d[, haema := as.numeric(haema)]
+d[, species := factor(species, levels = c("PESA", "REPH"))]
+d[, sex := factor(sex, levels = c("M", "F"))]
 
 # min max scale
 d[, .(min(date_doy), max(date_doy))]
 d[, .(min(testo), max(testo))]
 
-# # relative tarsus
-# d[, tarus_mean_ID := mean(tarsus, na.rm = TRUE), by = ID]
-# d[, tarus_mean_sp := mean(tarus_mean_ID, na.rm = TRUE), by = .(species, sex)]
-# d[, tarsus_rel := tarsus - tarus_mean_sp]
-# 
-# # relative weight
-# d[, weight_mean_sp := mean(weight, na.rm = TRUE), by = .(species, sex)]
-# d[, weight_rel := weight - weight_mean_sp]
-
 # start word file for ESM
-ESM = read_docx()
+ESM <- read_docx()
 
 # parameter names 
-pn = fread("parname;                                                          parameter
-            (Intercept);                                                      Intercept 
-            speciesREPH;                                                      Species (red phalarope)
-            date_doy;                                                         Day of the year 
-            poly(date_doy, 2)1;                                               Day of the year (linear)
-            poly(date_doy, 2)2;                                               Day of the year (quadratic)
-            sexF;                                                             Sex (female)
-            sexF:date_doy;                                                    Sex (female):Day of the year 
-            testo_log;                                                        Testosterone (logarithmic)
-            GnRH_sampleGnRH-induced;                                          GnRH induced
-            GnRHlow;                                                          Low GnRH concentration
-            speciesREPH:GnRH_sampleGnRH-induced;                              Species (red phalarope):GnRH induced
-            smi_z;                                                            Scaled mass index
-            speciesREPH:smi_z;                                                Species (red phalarope):Scaled mass index
-            sexF:smi_z;                                                       Sex (female):Scaled mass index
-            sd__(Intercept);                                                  Random intercept
-            sd__(Intercept)_year_;                                            Random intercept (year)
-            sd__(Intercept)_ID;                                               Random intercept (ID)
-            r2marg;                                                           R² marginal
-            r2cond;                                                           R² conditional
-            
-", sep = ';')
+pn <- fread(
+  "parname;                            parameter
+  (Intercept);                         Intercept 
+  speciesREPH;                         Species (red phalarope)
+  date_doy;                            Day of the year 
+  poly(date_doy, 2)1;                  Day of the year (linear)
+  poly(date_doy, 2)2;                  Day of the year (quadratic)
+  sexF;                                Sex (female)
+  sexF:date_doy;                       Sex (female):Day of the year 
+  testo_log;                           Testosterone (logarithmic)
+  GnRH_sampleGnRH-induced;             GnRH induced
+  GnRHlow;                             Low GnRH concentration
+  speciesREPH:GnRH_sampleGnRH-induced; Species (red phalarope):GnRH induced
+  smi_z;                               Scaled mass index
+  speciesREPH:smi_z;                   Species (red phalarope):Scaled mass index
+  sexF:smi_z;                          Sex (female):Scaled mass index
+  sd__(Intercept);                     Random intercept
+  sd__(Intercept)_year_;               Random intercept (year)
+  r2marg;                              R² marginal
+  r2cond;                              R² conditional
+",
+  sep = ";"
+)
 
 # plot settings
-bs = 12 # base size
-ls = 3 # labels
+bs <- 12 # base size
+ls <- 3 # labels
 
-#--------------------------------------------------------------------------------------------------------------
-# Caught time till bleeding
-#--------------------------------------------------------------------------------------------------------------
-
-# together
-d[!is.na(diff_caught_bled), 
-  .(mean = mean(diff_caught_bled), sd = sd(diff_caught_bled), 
-    min = min(diff_caught_bled), max = max(diff_caught_bled), .N)]
-
-# by species 
-d[!is.na(diff_caught_bled), 
-  .(mean = mean(diff_caught_bled), sd = sd(diff_caught_bled), 
-    min = min(diff_caught_bled), max = max(diff_caught_bled), .N), by = species]
-
-p1 = 
-  ggplot(data = d[is.na(GnRH) & !is.na(T)]) +
-  geom_histogram(aes(diff_caught_bled, fill = species)) +
-  scale_fill_manual(values = c("steelblue4", 'indianred3')) +
-  theme_classic(base_size = 12) +
-  ylab('Count') +
-  xlab('Time (min')
-
-# subset birds with GnRH 
-IDe = d[!is.na(GnRH)]$ID
-ds = d[ID %in% IDe]
-
-# exclude third testo sample
-ds = ds[!(ID == 270170318	& date_ == '2017-06-01')]
-
-# together
-ds[!is.na(diff_caught_bled) & is.na(GnRH), 
-   .(mean = mean(diff_caught_bled), sd = sd(diff_caught_bled), 
-     min = min(diff_caught_bled), max = max(diff_caught_bled), .N)]
-
-# by species 
-ds[!is.na(diff_caught_bled) & is.na(GnRH), 
-   .(mean = mean(diff_caught_bled), sd = sd(diff_caught_bled), 
-     min = min(diff_caught_bled), max = max(diff_caught_bled), .N), by = species]
-
-p2 = 
-  ggplot(data = ds[!is.na(diff_caught_bled) & is.na(GnRH)]) +
-  geom_histogram(aes(diff_caught_bled, fill = species)) +
-  scale_fill_manual(values = c("steelblue4", 'indianred3')) +
-  theme_classic(base_size = 12) +
-  ylab('Count') +
-  xlab('Time (min')
-
-
-
-# merge plots
-p1 + p2 +
-  plot_layout(nrow = 2) +
-  plot_annotation(tag_levels = 'a')
-
-
-# ggsave('./OUTPUTS/FIGURES/diff_caught_bled.tiff', plot = last_plot(),  width = 177, height = 177,
-#        units = c('mm'), dpi = 'print')
-
-#--------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # Scaled mass index (Peig and Green, 2009)
-#--------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
 # mean by ID
-dID = unique(d[, wing_mean_ID := mean(wing, na.rm = TRUE), by = ID], by = 'ID')
+dID <- unique(d[, wing_mean_ID := mean(wing, na.rm = TRUE), by = ID], by = "ID")
 
 # mean wing length by species and sex
-dPop = dID[, .(wing_mean_pop = mean(wing_mean_ID, na.rm = TRUE)), by = .(species, sex)]
+dPop <- dID[, .(wing_mean_pop = mean(wing_mean_ID, na.rm = TRUE)),
+  by = .(species, sex)
+]
 
 # slope for each category
 foreach(i = 1:nrow(dPop)) %do% {
-
-  ds = d[species == dPop[i, ]$species & sex == dPop[i, ]$sex] # subset 
-  b_msa_ = coef(smatr::sma(log(ds$weight) ~ log(ds$wing)))[2]
+  ds <- d[species == dPop[i, ]$species & sex == dPop[i, ]$sex] # subset
+  b_msa_ <- coef(smatr::sma(log(ds$weight) ~ log(ds$wing)))[2]
   dPop[species == dPop[i, ]$species & sex == dPop[i, ]$sex, b_msa := b_msa_]
-
 }
 
 # merge with all data
-d = merge(d, dPop, by = c('species', 'sex'))
+d <- merge(d, dPop, by = c("species", "sex"))
 
 # scaled mass index for each observation
-d[, smi := weight * (wing_mean_pop / wing_mean_ID) ^ b_msa]
+d[, smi := weight * (wing_mean_pop / wing_mean_ID)^b_msa]
 
 # z transformed by species and sex
 d[, smi_z := scale(smi), by = .(species, sex)]
@@ -178,9 +120,9 @@ ggplot(data = d) +
 
 d[, .(min(smi_z, na.rm = TRUE), max(smi_z, na.rm = TRUE))]
 
-#--------------------------------------------------------------------------------------------------------------
-# Between species comparison
-#--------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+# Testosterone between species comparison
+#-------------------------------------------------------------------------------
 
 # exclude GnRH induced samples
 ds = d[is.na(GnRH)]
@@ -197,10 +139,9 @@ dms[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 
 
 # model 
-m <- glmmTMB(testo_log ~ species + poly(date_doy, 2) + smi_z + (1 | year_) + (1 | ID),
+m <- glmmTMB(testo_log ~ species + poly(date_doy, 2) + smi_z + (1 | year_),
              family = gaussian(link = "identity"), 
-             data = dm,
-             control = glmmTMBControl(parallel = 15)
+             data = dm
 )
 
 
@@ -239,10 +180,9 @@ ESM = ESM |> body_add_break(pos = 'after')
 
 
 # model with interaction for plot
-m <- glmmTMB(testo_log ~ species * poly(date_doy, 2) + species * smi_z + (1 | year_) + (1 | ID),
+m <- glmmTMB(testo_log ~ species * poly(date_doy, 2) + species * smi_z + (1 | year_),
              family = gaussian(link = "identity"), 
-             data = dm,
-             control = glmmTMBControl(parallel = 15)
+             data = dm
 )
 
 # plot(allEffects(m))
@@ -346,8 +286,7 @@ dfs[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 # model 
 m <- glmmTMB(testo_log ~ species + date_doy + smi_z + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
-             data = df,
-             control = glmmTMBControl(parallel = 15)
+             data = df
 )
 
 plot(allEffects(m))
@@ -387,15 +326,14 @@ ESM = ESM |> body_add_break(pos = 'after')
 # model with interaction for plot
 m <- glmmTMB(testo_log ~ species * date_doy + species * smi_z + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
-             data = df,
-             control = glmmTMBControl(parallel = 15)
+             data = df
 )
 
 # plot(allEffects(m))
 # summary(m)
 
 # extract season effect from model for plot
-es = effect("species:poly(date_doy, 2)", m, xlevels = 1000) |>
+es = effect("species:date_doy", m, xlevels = 1000) |>
   data.frame() |>
   setDT()
 
@@ -489,9 +427,9 @@ ggsave('./OUTPUTS/FIGURES/testo_by_sex_and_species_smi.tiff', plot = last_plot()
        units = c('mm'), dpi = 'print')
 
 
-#--------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # GnRH experiment
-#--------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
 # subset birds with GnRH 
 IDe = d[!is.na(GnRH)]$ID
@@ -530,10 +468,9 @@ dms[, species_sample := paste0(species, '_Baseline')]
 # model
 m <- glmmTMB(testo_log ~ species * GnRH_sample +  GnRH + (1 | ID),
              family = gaussian(link = "identity"), 
-             data = dm,
-             control = glmmTMBControl(parallel = 15)
+             data = dm
+             
 )
-
 
 # plot(allEffects(m))
 summary(m)
@@ -611,8 +548,7 @@ dfs[, species_sample := paste0(species, '_Baseline')]
 # model
 m <- glmmTMB(testo_log ~ species * GnRH_sample +  GnRH + (1 | ID),
              family = gaussian(link = "identity"), 
-             data = df,
-             control = glmmTMBControl(parallel = 15)
+             data = df
 )
 
 
@@ -689,9 +625,9 @@ p1 + p2 +
 ggsave('./OUTPUTS/FIGURES/testo_GnRH.tiff', plot = last_plot(),  width = 177, height = 88,
        units = c('mm'), dpi = 'print')
 
-#--------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # Testosterone influence on haematocrit
-#--------------------------------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
 # exclude GnRH induced samples
 ds = d[is.na(GnRH)]
@@ -727,8 +663,7 @@ dsss[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 # model
 m <- glmmTMB(haema ~ sex + date_doy + sex + testo_log + sex + smi_z + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
-             data = dss,
-             control = glmmTMBControl(parallel = 15)
+             data = dss
 )
 
 plot(allEffects(m))
@@ -911,8 +846,7 @@ dsss[, sample_size := paste0('N = ', N, ' | ', N_ind)]
 # model
 m <- glmmTMB(haema ~ sex + date_doy + testo_log + smi_z + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
-             data = dss,
-             control = glmmTMBControl(parallel = 15)
+             data = dss
 )
 
 plot(allEffects(m))
@@ -952,8 +886,7 @@ ESM = ESM |> body_add_break(pos = 'after')
 # model with interaction for plot
 m <- glmmTMB(haema ~ sex * date_doy + sex * testo_log + sex * smi_z + (1 | year_) + (1 | ID),
              family = gaussian(link = "identity"), 
-             data = dss,
-             control = glmmTMBControl(parallel = 15)
+             data = dss
 )
 
 
