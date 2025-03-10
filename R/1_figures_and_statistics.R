@@ -9,7 +9,7 @@
 #' ---
 
 #-------------------------------------------------------------------------------
-# Load packages and data
+#' # Load packages and data
 #-------------------------------------------------------------------------------
 
 # packages
@@ -41,7 +41,7 @@ opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 # )
 
 #-------------------------------------------------------------------------------
-# Prepare data for analysis
+#' # Prepare data for analysis
 #-------------------------------------------------------------------------------
 
 # testo pg/ml to ng/ml
@@ -101,7 +101,7 @@ bs <- 12 # base size
 ls <- 3 # labels
 
 #-------------------------------------------------------------------------------
-# Scaled mass index (Peig and Green, 2009)
+#' # Scaled mass index (Peig and Green, 2009)
 #-------------------------------------------------------------------------------
 
 # mean by ID
@@ -135,7 +135,7 @@ ggplot(data = d) +
 d[, .(min(smi_z, na.rm = TRUE), max(smi_z, na.rm = TRUE))]
 
 #-------------------------------------------------------------------------------
-# Testosterone between species comparison
+#' # Testosterone between species comparison
 #-------------------------------------------------------------------------------
 
 # exclude GnRH induced samples
@@ -232,7 +232,7 @@ p1 <-
     data = e, aes(
       x = species, ymin = 10^upper, ymax = 10^lower,
       color = species
-    ), size = 0.5,
+    ), linewidth = 0.5,
     position = position_dodge(width = 0.5)
   ) +
   scale_fill_manual(values = c("steelblue4", "indianred3")) +
@@ -306,7 +306,8 @@ es <- es[in_range == TRUE]
 p5 <-
   ggplot() +
   geom_point(
-    data = dm, aes(smi_z, testo, color = species), size = 0.5, alpha = 0.5
+    data = dm[!is.na(smi_z)], 
+    aes(smi_z, testo, color = species), size = 0.5, alpha = 0.5
   ) +
   geom_line(
     data = es, aes(y = 10^fit, x = smi_z, color = species), size = 0.8
@@ -422,7 +423,7 @@ p2 <-
     data = e, aes(
       x = species, ymin = 10^upper,
       ymax = 10^lower, color = species
-    ), size = 0.5,
+    ), linewidth = 0.5,
     position = position_dodge(width = 0.5)
   ) +
   scale_fill_manual(values = c("steelblue4", "indianred3")) +
@@ -494,7 +495,8 @@ es <- es[in_range == TRUE]
 p6 <-
   ggplot() +
   geom_point(
-    data = df, aes(smi_z, testo, color = species), size = 0.5, alpha = 0.5
+    data = df[!is.na(smi_z)], 
+    aes(smi_z, testo, color = species), size = 0.5, alpha = 0.5
   ) +
   geom_line(
     data = es, aes(y = 10^fit, x = smi_z, color = species), size = 0.8
@@ -535,7 +537,7 @@ ggsave(
 
 
 #-------------------------------------------------------------------------------
-# GnRH experiment
+#' # GnRH experiment
 #-------------------------------------------------------------------------------
 
 # subset birds with GnRH
@@ -639,7 +641,7 @@ p1 <-
     aes(
       x = species_sample, ymin = 10^upper, ymax = 10^lower,
       color = species
-    ), size = 0.5,
+    ), linewidth = 0.5,
     position = position_nudge(x = -0.2)
   ) +
   geom_linerange(
@@ -647,7 +649,7 @@ p1 <-
     aes(
       x = species_sample, ymin = 10^upper, ymax = 10^lower,
       color = species
-    ), size = 0.5,
+    ), linewidth = 0.5,
     position = position_nudge(x = 0.2)
   ) +
   scale_color_manual(values = c("steelblue4", "indianred3")) +
@@ -724,7 +726,7 @@ y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
 ft <- flextable(y) |> autofit()
 ft <- bold(ft, bold = TRUE, part = "header")
 ESM <- ESM |>
-  body_add_par(paste0("Table S3. LMM females GnRH")) |>
+  body_add_par(paste0("Table S4. LMM females GnRH")) |>
   body_add_par("") |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
@@ -751,13 +753,13 @@ p2 <-
   geom_linerange(
     data = e[GnRH_sample == "Baseline"],
     aes(x = species_sample, ymin = 10^upper, ymax = 10^lower, color = species),
-    size = 0.5,
+    linewidth = 0.5,
     position = position_nudge(x = -0.2)
   ) +
   geom_linerange(
     data = e[GnRH_sample == "GnRH-induced"],
     aes(x = species_sample, ymin = 10^upper, ymax = 10^lower, color = species),
-    size = 0.5,
+    linewidth = 0.5,
     position = position_nudge(x = 0.2)
   ) +
   scale_color_manual(values = c("steelblue4", "indianred3")) +
@@ -803,7 +805,7 @@ ggsave(
 )
 
 #-------------------------------------------------------------------------------
-# Testosterone influence on hematocrit
+#' # Testosterone influence on hematocrit
 #-------------------------------------------------------------------------------
 
 # exclude GnRH induced samples
@@ -876,7 +878,7 @@ y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
 ft <- flextable(y) |> autofit()
 ft <- bold(ft, bold = TRUE, part = "header")
 ESM <- ESM |>
-  body_add_par(paste0("Table S4. LMM haematocrit PESA")) |>
+  body_add_par(paste0("Table S5. LMM haematocrit PESA")) |>
   body_add_par("") |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
@@ -886,8 +888,7 @@ ESM <- ESM |> body_add_break(pos = "after")
 m <- glmmTMB(
   haema ~ sex + date_doy + testo_log + smi_z + (1 | year_) + (1 | ID),
   family = gaussian(link = "identity"),
-  data = dss,
-  control = glmmTMBControl(parallel = 15)
+  data = dss
 )
 
 
@@ -907,8 +908,7 @@ m <- glmmTMB(
   haema ~ sex * date_doy + sex * testo_log + sex * smi_z +
     (1 | year_) + (1 | ID),
   family = gaussian(link = "identity"),
-  data = dss,
-  control = glmmTMBControl(parallel = 15)
+  data = dss
 )
 
 
@@ -958,7 +958,7 @@ p1 <-
   ) +
   geom_linerange(
     data = e, aes(x = sex, ymin = upper, ymax = lower),
-    color = "black", size = 0.5,
+    color = "black", linewidth = 0.5,
     position = position_dodge(width = 0.5)
   ) +
   scale_fill_manual(values = c("#7aa048", "#E69F00")) +
@@ -1042,7 +1042,8 @@ es <- es[in_range == TRUE]
 p4 <-
   ggplot() +
   geom_point(
-    data = dss, aes(smi_z, haema, color = sex), size = 0.5, alpha = 0.5
+    data = dss[!is.na(smi_z)], 
+    aes(smi_z, haema, color = sex), size = 0.5, alpha = 0.5
   ) +
   geom_line(data = es, aes(y = fit, x = smi_z, color = sex), size = 0.8) +
   geom_ribbon(
@@ -1107,7 +1108,7 @@ y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
 ft <- flextable(y) |> autofit()
 ft <- bold(ft, bold = TRUE, part = "header")
 ESM <- ESM |>
-  body_add_par(paste0("Table S5. LMM haematocrit REPH")) |>
+  body_add_par(paste0("Table S6. LMM haematocrit REPH")) |>
   body_add_par("") |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
@@ -1168,7 +1169,7 @@ p5 <-
   ) +
   geom_linerange(
     data = e,
-    aes(x = sex, ymin = upper, ymax = lower), color = "black", size = 0.5,
+    aes(x = sex, ymin = upper, ymax = lower), color = "black", linewidth = 0.5,
     position = position_dodge(width = 0.5)
   ) +
   scale_fill_manual(values = c("#7aa048", "#E69F00")) +
@@ -1252,7 +1253,8 @@ es <- es[in_range == TRUE]
 p8 <-
   ggplot() +
   geom_point(
-    data = dss, aes(smi_z, haema, color = sex), size = 0.5, alpha = 0.5
+    data = dss[!is.na(smi_z)], 
+    aes(smi_z, haema, color = sex), size = 0.5, alpha = 0.5
   ) +
   geom_line(data = es, aes(y = fit, x = smi_z, color = sex), size = 0.8) +
   geom_ribbon(
@@ -1289,3 +1291,6 @@ ggsave(
 # save word file
 # print(ESM, target = "./OUTPUTS/ESM/ESM_REPH_PESA_testo_haema_analysis.docx")
 
+
+# session info
+sessionInfo()
