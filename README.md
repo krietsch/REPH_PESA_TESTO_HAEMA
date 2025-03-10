@@ -75,7 +75,7 @@ For any publication making substantial use of the data or code, the authors welc
 
 If you use the code or data, please cite the OSF repository linked to this github project: 
 
-Krietsch\*, J., Goymann\*, W., Valcu, M. & Kempenaers, B. (in prep.). Data and code from "Sex differences in testosterone and haematocrit levels reflect mating system differences of two Arctic-breeding shorebird species". Open Science Framework. https://doi.org/ADD_HERE
+Krietsch\*, J., Goymann\*, W., Valcu, M. & Kempenaers, B. (in prep.). Data and code from "Sex differences in testosterone and haematocrit levels reflect mating system differences of two Arctic-breeding shorebird species". Open Science Framework. https://doi.org/10.17605/OSF.IO/DUXFZ
 
 and the corresponding article:
 
