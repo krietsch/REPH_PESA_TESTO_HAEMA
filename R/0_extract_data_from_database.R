@@ -19,14 +19,6 @@ scidb <- "C:/Users/jkrietsch/scidb/"
 # REPH data
 #-------------------------------------------------------------------------------
 
-# con <- dbcon("jkrietsch", db = "REPHatBARROW")
-# 
-# # data
-# dc <- dbq(con, "select * FROM CAPTURES")
-# dt <- dbq(con, "select * FROM TESTO")
-# ds <- dbq(con, "select * FROM SEX")
-# dbDisconnect(con)
-
 # database
 con <- dbConnect(RSQLite::SQLite(), paste0(scidb, "REPHatBARROW.sqlite"))
 dc <- dbGetQuery(con, "SELECT * FROM [CAPTURES]") |> data.table()
@@ -66,14 +58,6 @@ dR <- dc[!is.na(T), .(
 #-------------------------------------------------------------------------------
 # PESA data
 #-------------------------------------------------------------------------------
-
-# con <- dbcon("jkrietsch", db = "PESAatBARROW")
-# 
-# # data
-# dc <- dbq(con, "select * FROM CAPTURES")
-# dt <- dbq(con, "select * FROM TESTO")
-# ds <- dbq(con, "select * FROM SEX")
-# dbDisconnect(con)
 
 # database
 con <- dbConnect(RSQLite::SQLite(), paste0(scidb, "PESAatBARROW.sqlite"))
@@ -169,9 +153,16 @@ dP <- dc[!is.na(T), .(
 # Merge data and save
 #-------------------------------------------------------------------------------
 
+# merge
 d <- rbindlist(list(dR, dP))
 d[, year_ := year(date_)]
 d[, haema := round(as.numeric(haema), 1)]
+
+# order table
+setcolorder(d, c(
+  "species", "ID", "year_",
+  setdiff(names(d), c("species", "ID", "year_"))
+))
 
 # check outliers
 
