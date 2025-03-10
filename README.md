@@ -10,9 +10,9 @@ Wolfgang Goymann* [![ORCID_ID](./DATA/ILLUSTRATIONS/ORCID_ID_logo.png)](https://
 Mihai Valcu [![ORCID_ID](./DATA/ILLUSTRATIONS/ORCID_ID_logo.png)](https://orcid.org/0000-0002-6907-7802) and 
 Bart Kempenaers [![ORCID_ID](./DATA/ILLUSTRATIONS/ORCID_ID_logo.png)](https://orcid.org/0000-0002-7505-5458).  
 
-When using the data or code please cite the associated manuscript (in review) and [Open Science Framework repository](add link) (which is synchronized with this repository). Please do not hesitate to contact me (j.krietsch@orn.mpg.de) if you have any questions, trouble running the code, found bugs or ideas to develop the project further. 
+When using the data or code please cite the associated manuscript (in review) and [Open Science Framework repository](add link) (which is synchronized with this repository). Please do not hesitate to contact me if you have any questions, trouble running the code, found bugs or ideas to develop the project further. 
 
-*contributed equally to the manuscript
+*\*contributed equally to the manuscript*  
 
 <p>&nbsp;</p>
 
@@ -20,7 +20,7 @@ When using the data or code please cite the associated manuscript (in review) an
 
 **`DATA/`**:
 
-All data used in this analysis (**click on the black arrows** to see column definitions). Extracted from our database (see below).
+All data used in this analysis (**click on the black arrow** to see column definitions). Extracted from our database (see below).
 
 <details>
   <summary> <b><code>REPH_PESA_testo_haema</code></b> – A csv table of all data used in this manuscript </summary>
@@ -30,6 +30,8 @@ All data used in this analysis (**click on the black arrows** to see column defi
   1.	`year_`: year
 
 </details>
+
+<p>&nbsp;</p>
 
 **`R/`**:
 
@@ -60,13 +62,32 @@ For any publication making substantial use of the data or code, the authors welc
 
 If you use the code or data, please cite the OSF repository linked to this github project: 
 
-Krietsch, J., Goymann, W., Valcu, M. & Kempenaers, B. (in prep.). Data and code from ‘Sex differences in testosterone and haematocrit levels reflect mating system differences of two Arctic-breeding shorebird species’. Open Science Framework. https://doi.org/ADD_HERE
+Krietsch\*, J., Goymann\*, W., Valcu, M. & Kempenaers, B. (in prep.). Data and code from ‘Sex differences in testosterone and haematocrit levels reflect mating system differences of two Arctic-breeding shorebird species’. Open Science Framework. https://doi.org/ADD_HERE
 
 and the corresponding article:
 
-Krietsch, J., Goymann, W., Valcu, M. & Kempenaers, B. (in prep.). Sex differences in testosterone and haematocrit levels reflect mating system differences of two Arctic-breeding shorebird species.
+Krietsch\*, J., Goymann\*, W., Valcu, M. & Kempenaers, B. (in prep.). Sex differences in testosterone and haematocrit levels reflect mating system differences of two Arctic-breeding shorebird species.
+
+
+*\*contributed equally to the manuscript*  
 
 
 <p>&nbsp;</p>
 
   
+### **Acknowledgments**
+
+
+This work was funded by the [Max Planck Society](https://www.mpg.de/en) (to B.K.). J.K. was supported by the International Max Planck Research School for Organismal Biology. 
+
+We thank Margherita Cragnolini, Kristina Beck, Eunbi Kwon, Pietro D'Amelio, Giulia Bambini, Peter Santema, Fenja Squirrell, Alice Pintaric, Carol Gilsenan, Anne Cillard, Kim Teltscher, Martin Bulla, Andrea Wittenzellner, Luisana Carballo, Sylvia Kuhn and Sabine Spehn for help in the field (ordered by days in the field). We also thank Richard B. Lanctot for advice and help with logistics, permits and equipment. We are grateful to the state and federal committees that reviewed and approved permits for this study, and to the Ukpeaġvik Iñupiat Corporation for logistic support and access to their lands. 
+
+<p>&nbsp;</p>
+
+<p align="middle">
+  <a href="https://www.bi.mpg.de/en">
+    <img src="./DATA/ILLUSTRATIONS/MPIO_logo.png" width="500" />
+  </a>
+    <img src="./DATA/ILLUSTRATIONS/IMPRS_logo.png" width="280" /> 
+</p>
+
