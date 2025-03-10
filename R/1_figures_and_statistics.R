@@ -528,7 +528,7 @@ p1 + p2 + p3 + p4 + p5 + p6 +
   plot_annotation(tag_levels = "a")
 
 ggsave(
-  "./OUTPUTS/FIGURES/testo_by_sex_and_species_smi.tiff",
+  "./OUTPUTS/FIGURES/testo_by_sex_and_species.tiff",
   plot = last_plot(), width = 177, height = 264,
   units = c("mm"), dpi = "print"
 )
@@ -1280,12 +1280,12 @@ p1 + p5 +
 
 
 ggsave(
-  "./OUTPUTS/FIGURES/haematocrit_species_split_smi.tiff",
+  "./OUTPUTS/FIGURES/haematocrit_species_split.tiff",
   plot = last_plot(), width = 177, height = 264,
   units = c("mm"), dpi = "print"
 )
 
 
 # save word file
-# print(ESM, target = "./OUTPUTS/ESM/ESM_testo_analysis_smi.docx")
+# print(ESM, target = "./OUTPUTS/ESM/ESM_REPH_PESA_testo_haema_analysis.docx")
 

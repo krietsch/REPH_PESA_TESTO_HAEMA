@@ -27,7 +27,20 @@ All data used in this analysis (**click on the black arrow** to see column defin
   
   Columns are defined as:
 
-  1.	`year_`: year
+  1. `species`: Species abbreviation (REPH = red pahalarope, PESA = pectoral sandpiper)
+  2. `ID`: Metal band ID (unique identifier for each individual bird)
+  3. `year_`: Year in which the data was collected
+  4. `date_`: The date of capture in YYYY-MM-DD format
+  5. `caught_time`: The exact datetime the bird was caught (in AKDT)
+  6. `bled_time`: The datetime at which the bird was bled for sampling (in AKDT)
+  7. `sex`: The sex of the bird (`M` for male, `F` for female)
+  8. `tarsus`: Length of the tarsus (in mm)
+  9. `wing`: Wing length (in mm)
+  10. `weight`: Weight of the bird (in g)
+  11. `testo`: Testosterone level measured (in pg/ml)
+  12. `volume`: Blood plasma volume (in μl)
+  13. `GnRH`: If GnRH was injected indicates the dose (low or high)
+  14. `haema`: Heamatocrit level, as percentage of red blood cells in the blood sample
 
 </details>
 
@@ -62,7 +75,7 @@ For any publication making substantial use of the data or code, the authors welc
 
 If you use the code or data, please cite the OSF repository linked to this github project: 
 
-Krietsch\*, J., Goymann\*, W., Valcu, M. & Kempenaers, B. (in prep.). Data and code from ‘Sex differences in testosterone and haematocrit levels reflect mating system differences of two Arctic-breeding shorebird species’. Open Science Framework. https://doi.org/ADD_HERE
+Krietsch\*, J., Goymann\*, W., Valcu, M. & Kempenaers, B. (in prep.). Data and code from "Sex differences in testosterone and haematocrit levels reflect mating system differences of two Arctic-breeding shorebird species". Open Science Framework. https://doi.org/ADD_HERE
 
 and the corresponding article:
 
