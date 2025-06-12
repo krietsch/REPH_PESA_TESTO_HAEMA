@@ -844,4 +844,480 @@ p1 + p2 +
 
 
 
+#-------------------------------------------------------------------------------
+#' # Testosterone influence on hematocrit
+#-------------------------------------------------------------------------------
+
+# exclude GnRH induced samples
+ds <- d[is.na(GnRH)]
+
+# exclude NA
+ds <- ds[!is.na(haema)]
+
+ggplot() +
+  ggtitle("Males") +
+  geom_boxjitter(
+    data = ds, aes(species, haema,
+                   fill = sex,
+                   group = interaction(sex, species)
+    ),
+    outlier.color = NA, jitter.shape = 21, jitter.color = NA,
+    jitter.height = 0.0, jitter.width = 0.1, errorbar.draw = TRUE,
+    jitter.size = 0.7, width = .6
+  ) +
+  scale_fill_manual(values = c("steelblue4", "indianred3")) +
+  theme_classic(base_size = 10) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5, size = 10, face = "bold")
+  ) +
+  ylab("Haematocrit") +
+  xlab("")
+
+### by species
+
+# PESA
+dss <- ds[species == "PESA"]
+
+# sample size
+dsss <- dss[, .N, by = sex]
+du <- unique(dss, by = "ID")
+du <- du[, .(N_ind = .N), by = sex]
+dsss <- merge(dsss, du, by = "sex")
+dsss[, sample_size := paste0("N = ", N, " | ", N_ind)]
+
+# model
+m <- glmmTMB(
+  haema ~ sex * date_doy + sex * testo_log + sex * smi_z +
+    (1 | year_) + (1 | ID),
+  family = gaussian(link = "identity"),
+  data = dss
+)
+
+plot(allEffects(m))
+summary(m)
+
+
+# create clean summary table
+y <- tidy(m) |> data.table()
+x <- r2(m) |> data.table()
+
+setnames(x, c("estimate"))
+y[term == "sd__(Intercept)", term := paste0(term, "_", group)]
+x[, estimate := as.numeric(estimate)]
+x[, term := c("r2cond", "r2marg")]
+y <- rbindlist(list(y, x), use.names = TRUE, fill = TRUE)
+y[, row_order := rownames(y) |> as.numeric()]
+y <- merge(y, pn, by.x = "term", by.y = "parname")
+setorder(y, row_order)
+y <- y[, .(Parameter = parameter, Estimate = estimate, SE = std.error,
+           Statistic = statistic, p = p.value)]
+y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
+
+# save table in word
+ft <- flextable(y) |> autofit()
+ft <- bold(ft, bold = TRUE, part = "header")
+ESM <- ESM |>
+  body_add_par(paste0("Table S5. LMM haematocrit PESA")) |>
+  body_add_par("") |>
+  body_add_flextable(ft)
+ESM <- ESM |> body_add_break(pos = "after")
+
+
+# model with interaction for plot
+m <- glmmTMB(
+  haema ~ sex + date_doy + testo_log + smi_z + (1 | year_) + (1 | ID),
+  family = gaussian(link = "identity"),
+  data = dss
+)
+
+
+# plot(allEffects(m))
+# summary(m)
+
+# extract effect of haema
+e <- effect("sex", m, xlevels = 2) |>
+  data.frame() |>
+  setDT()
+
+# factor order
+e[, sex := factor(sex, levels = c("M", "F"))]
+
+# model with interaction for plot
+m <- glmmTMB(
+  haema ~ sex * date_doy + sex * testo_log + sex * smi_z +
+    (1 | year_) + (1 | ID),
+  family = gaussian(link = "identity"),
+  data = dss
+)
+
+
+# plot(allEffects(m))
+# summary(m)
+
+# extract season effect from model for plot
+es <- effect("sex:date_doy", m, xlevels = 1000) |>
+  data.frame() |>
+  setDT()
+
+# subset period with data
+dr <- ds[, .(first_data = min(date_doy), last_data = max(date_doy)), by = sex]
+es <- merge(es, dr, by = c("sex"), all.x = TRUE)
+es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
+es <- es[in_range == TRUE]
+
+# factor order
+es[, sex := factor(sex, levels = c("M", "F"))]
+
+# extract effect of testo
+et <- effect("sex:testo_log", m, xlevels = 1000) |>
+  data.frame() |>
+  setDT()
+
+# subset period with data
+dr <- ds[, .(first_data = min(testo_log), last_data = max(testo_log)), by = sex]
+et <- merge(et, dr, by = c("sex"), all.x = TRUE)
+et[, in_range := testo_log %between% c(first_data, last_data), by = 1:nrow(et)]
+et <- et[in_range == TRUE]
+
+# factor order
+et[, sex := factor(sex, levels = c("M", "F"))]
+
+# sex comparision
+p1 <-
+  ggplot() +
+  ggtitle("Pectoral sandpiper") +
+  geom_text(
+    data = dsss, aes(sex, Inf, label = sample_size),
+    vjust = 1, size = ls
+  ) +
+  geom_violin(data = dss, aes(sex, haema, fill = sex), alpha = 0.7) +
+  geom_point(
+    data = e, aes(sex, fit), color = "black",
+    position = position_dodge(0.5), size = 2
+  ) +
+  geom_linerange(
+    data = e, aes(x = sex, ymin = upper, ymax = lower),
+    color = "black", linewidth = 0.5,
+    position = position_dodge(width = 0.5)
+  ) +
+  scale_fill_manual(values = c("#7aa048", "#E69F00")) +
+  scale_y_continuous(limits = c(34, 73), expand = expansion(add = c(0, 0))) +
+  scale_x_discrete(labels = c("M" = "Male", "F" = "Female")) +
+  theme_classic(base_size = bs) +
+  theme(legend.position = "none", plot.title = element_text(
+    hjust = 0.5,
+    size = 10, face = "bold"
+  )) +
+  ylab("Haematocrit (%)") +
+  xlab("Sex")
+
+
+# effect of season
+p2 <-
+  ggplot() +
+  geom_point(
+    data = dss, aes(date_doy, haema, color = sex), size = 0.5, alpha = 0.5
+  ) +
+  geom_line(data = es, aes(y = fit, x = date_doy, color = sex), size = 0.8) +
+  geom_ribbon(
+    data = es, aes(
+      y = fit, x = date_doy, fill = sex,
+      ymin = lower, ymax = upper
+    ), alpha = 0.2
+  ) +
+  scale_color_manual(values = c("#7aa048", "#E69F00")) +
+  scale_fill_manual(values = c("#7aa048", "#E69F00")) +
+  scale_y_continuous(limits = c(34, 73), expand = expansion(add = c(0, 0))) +
+  scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
+  theme_classic(base_size = bs) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  ylab("Haematocrit (%)") +
+  xlab("Day of the year")
+
+# effect of testosterone
+p3 <-
+  ggplot() +
+  geom_point(
+    data = dss, aes(10^testo_log, haema, color = sex),
+    size = 0.5, alpha = 0.5
+  ) +
+  geom_line(
+    data = et, aes(y = fit, x = 10^testo_log, color = sex), size = 0.8
+  ) +
+  geom_ribbon(data = et, aes(
+    y = fit, x = 10^testo_log, fill = sex,
+    ymin = lower, ymax = upper
+  ), alpha = 0.2) +
+  scale_color_manual(values = c("#7aa048", "#E69F00")) +
+  scale_fill_manual(values = c("#7aa048", "#E69F00")) +
+  scale_y_continuous(limits = c(34, 73), expand = expansion(add = c(0, 0))) +
+  scale_x_log10(
+    limits = c(0.01, 350),
+    breaks = c(0.01, 0.1, 1, 10, 100),
+    labels = c(0.01, 0.1, 1, 10, 100)
+  ) +
+  annotation_logticks(sides = "b") +
+  theme_classic(base_size = bs) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  ylab("Haematocrit (%)") +
+  xlab("Testosterone (ng/ml)")
+
+# effect of smi_z
+es <- effect("sex:smi_z", m, xlevels = 1000) |>
+  data.frame() |>
+  setDT()
+
+# subset period with data
+dr <- dss[, .(
+  first_data = min(smi_z, na.rm = TRUE),
+  last_data = max(smi_z, na.rm = TRUE)
+),
+by = sex
+]
+es <- merge(es, dr, by = c("sex"), all.x = TRUE)
+es[, in_range := smi_z %between% c(first_data, last_data), by = 1:nrow(es)]
+es <- es[in_range == TRUE]
+
+p4 <-
+  ggplot() +
+  geom_point(
+    data = dss[!is.na(smi_z)], 
+    aes(smi_z, haema, color = sex), size = 0.5, alpha = 0.5
+  ) +
+  geom_line(data = es, aes(y = fit, x = smi_z, color = sex), size = 0.8) +
+  geom_ribbon(
+    data = es, aes(y = fit, x = smi_z, fill = sex, ymin = lower, ymax = upper),
+    alpha = 0.2
+  ) +
+  scale_color_manual(values = c("#7aa048", "#E69F00")) +
+  scale_fill_manual(values = c("#7aa048", "#E69F00")) +
+  scale_y_continuous(limits = c(34, 73), expand = expansion(add = c(0, 0))) +
+  scale_x_continuous(limits = c(-4.5, 4.5), expand = expansion(add = c(0, 0))) +
+  theme_classic(base_size = bs) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  ylab("Haematocrit (%)") +
+  xlab("Scaled mass index")
+
+
+# REPH
+dss <- ds[species == "REPH"]
+
+# sample size
+dsss <- dss[, .N, by = sex]
+du <- unique(dss, by = "ID")
+du <- du[, .(N_ind = .N), by = sex]
+dsss <- merge(dsss, du, by = "sex")
+dsss[, sample_size := paste0("N = ", N, " | ", N_ind)]
+
+# model
+m <- glmmTMB(
+  haema ~ sex + date_doy + testo_log + smi_z + (1 | year_) + (1 | ID),
+  family = gaussian(link = "identity"),
+  data = dss
+)
+
+plot(allEffects(m))
+summary(m)
+
+# extract effect of haema
+e <- effect("sex", m, xlevels = 2) |>
+  data.frame() |>
+  setDT()
+
+# factor order
+e[, sex := factor(sex, levels = c("M", "F"))]
+
+# create clean summary table
+y <- tidy(m) |> data.table()
+x <- r2(m) |> data.table()
+
+setnames(x, c("estimate"))
+y[term == "sd__(Intercept)", term := paste0(term, "_", group)]
+x[, estimate := as.numeric(estimate)]
+x[, term := c("r2cond", "r2marg")]
+y <- rbindlist(list(y, x), use.names = TRUE, fill = TRUE)
+y[, row_order := rownames(y) |> as.numeric()]
+y <- merge(y, pn, by.x = "term", by.y = "parname")
+setorder(y, row_order)
+y <- y[, .(Parameter = parameter, Estimate = estimate, SE = std.error,
+           Statistic = statistic, p = p.value)]
+y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
+
+# save table in word
+ft <- flextable(y) |> autofit()
+ft <- bold(ft, bold = TRUE, part = "header")
+ESM <- ESM |>
+  body_add_par(paste0("Table S6. LMM haematocrit REPH")) |>
+  body_add_par("") |>
+  body_add_flextable(ft)
+ESM <- ESM |> body_add_break(pos = "after")
+
+
+# model with interaction for plot
+m <- glmmTMB(
+  haema ~ sex * date_doy + sex * testo_log + sex * smi_z +
+    (1 | year_) + (1 | ID),
+  family = gaussian(link = "identity"),
+  data = dss
+)
+
+
+# plot(allEffects(m))
+# summary(m)
+
+# extract season effect from model for plot
+es <- effect("sex:date_doy", m, xlevels = 1000) |>
+  data.frame() |>
+  setDT()
+
+# subset period with data
+dr <- ds[, .(first_data = min(date_doy), last_data = max(date_doy)), by = sex]
+es <- merge(es, dr, by = c("sex"), all.x = TRUE)
+es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
+es <- es[in_range == TRUE]
+
+# factor order
+es[, sex := factor(sex, levels = c("M", "F"))]
+
+# extract effect of testo
+et <- effect("sex:testo_log", m, xlevels = 1000) |>
+  data.frame() |>
+  setDT()
+
+# subset period with data
+dr <- ds[, .(first_data = min(testo_log), last_data = max(testo_log)), by = sex]
+et <- merge(et, dr, by = c("sex"), all.x = TRUE)
+et[, in_range := testo_log %between% c(first_data, last_data), by = 1:nrow(et)]
+et <- et[in_range == TRUE]
+
+# factor order
+et[, sex := factor(sex, levels = c("M", "F"))]
+
+
+# sex comparison
+p5 <-
+  ggplot() +
+  ggtitle("Red Phalarope") +
+  geom_text(
+    data = dsss, aes(sex, Inf, label = sample_size), vjust = 1, size = ls
+  ) +
+  geom_violin(data = dss, aes(sex, haema, fill = sex), alpha = 0.7) +
+  geom_point(
+    data = e, aes(sex, fit), color = "black",
+    position = position_dodge(0.5), size = 2
+  ) +
+  geom_linerange(
+    data = e,
+    aes(x = sex, ymin = upper, ymax = lower), color = "black", linewidth = 0.5,
+    position = position_dodge(width = 0.5)
+  ) +
+  scale_fill_manual(values = c("#7aa048", "#E69F00")) +
+  scale_y_continuous(limits = c(34, 73), expand = expansion(add = c(0, 0))) +
+  scale_x_discrete(labels = c("M" = "Male", "F" = "Female")) +
+  theme_classic(base_size = bs) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5, size = 10, face = "bold")
+  ) +
+  ylab("") +
+  xlab("Sex")
+
+# effect of season
+p6 <-
+  ggplot() +
+  geom_point(
+    data = dss, aes(date_doy, haema, color = sex), size = 0.5, alpha = 0.5
+  ) +
+  geom_line(data = es, aes(y = fit, x = date_doy, color = sex), size = 0.8) +
+  geom_ribbon(
+    data = es, aes(
+      y = fit, x = date_doy, fill = sex, ymin = lower,
+      ymax = upper
+    ), alpha = 0.2
+  ) +
+  scale_color_manual(values = c("#7aa048", "#E69F00")) +
+  scale_fill_manual(values = c("#7aa048", "#E69F00")) +
+  scale_y_continuous(limits = c(34, 73), expand = expansion(add = c(0, 0))) +
+  scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
+  theme_classic(base_size = bs) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  ylab("") +
+  xlab("Day of the year")
+
+# effect of testosterone
+p7 <-
+  ggplot() +
+  geom_point(
+    data = dss, aes(10^testo_log, haema, color = sex), size = 0.5, alpha = 0.5
+  ) +
+  geom_line(
+    data = et, aes(y = fit, x = 10^testo_log, color = sex), size = 0.8
+  ) +
+  geom_ribbon(
+    data = et, aes(
+      y = fit, x = 10^testo_log, fill = sex, ymin = lower,
+      ymax = upper
+    ), alpha = 0.2
+  ) +
+  scale_color_manual(values = c("#7aa048", "#E69F00")) +
+  scale_fill_manual(values = c("#7aa048", "#E69F00")) +
+  scale_y_continuous(limits = c(34, 73), expand = expansion(add = c(0, 0))) +
+  scale_x_log10(
+    limits = c(0.01, 350),
+    breaks = c(0.01, 0.1, 1, 10, 100),
+    labels = c(0.01, 0.1, 1, 10, 100)
+  ) +
+  annotation_logticks(sides = "b") +
+  theme_classic(base_size = bs) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  ylab("") +
+  xlab("Testosterone (ng/ml)")
+
+# effect of smi_z
+es <- effect("sex:smi_z", m, xlevels = 1000) |>
+  data.frame() |>
+  setDT()
+
+# subset period with data
+dr <- dss[, .(
+  first_data = min(smi_z, na.rm = TRUE),
+  last_data = max(smi_z, na.rm = TRUE)
+),
+by = sex
+]
+es <- merge(es, dr, by = c("sex"), all.x = TRUE)
+es[, in_range := smi_z %between% c(first_data, last_data), by = 1:nrow(es)]
+es <- es[in_range == TRUE]
+
+p8 <-
+  ggplot() +
+  geom_point(
+    data = dss[!is.na(smi_z)], 
+    aes(smi_z, haema, color = sex), size = 0.5, alpha = 0.5
+  ) +
+  geom_line(data = es, aes(y = fit, x = smi_z, color = sex), size = 0.8) +
+  geom_ribbon(
+    data = es, aes(
+      y = fit, x = smi_z, fill = sex, ymin = lower,
+      ymax = upper
+    ), alpha = 0.2
+  ) +
+  scale_color_manual(values = c("#7aa048", "#E69F00")) +
+  scale_fill_manual(values = c("#7aa048", "#E69F00")) +
+  scale_y_continuous(limits = c(34, 73), expand = expansion(add = c(0, 0))) +
+  scale_x_continuous(limits = c(-4.5, 4.5), expand = expansion(add = c(0, 0))) +
+  theme_classic(base_size = bs) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  ylab("") +
+  xlab("Scaled mass index")
+
+# merge plots
+p1 + p5 +
+  p3 + p7 +
+  p4 + p8 +
+  
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = "a")
+
 
