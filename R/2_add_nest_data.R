@@ -72,9 +72,10 @@ ggplot(dn, aes(x = initiation_doy, y = factor(year_))) +
 
 
 
-# p1 <- 
-ggplot(dn, aes(x = initiation_doy, y = factor(species))) +
-  geom_boxplot(fill = "lightblue", color = "darkblue") +
+p1 <-
+ggplot(dn, aes(x = initiation_doy, y = factor(species), fill = factor(species))) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("steelblue4", "indianred3")) +
   scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
   theme_classic(base_size = 12) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
@@ -126,4 +127,65 @@ ggplot() +
   xlab("Day of the year")
 
 p2 / p1
+
+
+
+p2 <-
+  ggplot(d, aes(x = date_doy, y = factor(species))) +
+  geom_boxplot(fill = "lightblue", color = "darkblue") +
+  scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
+  theme_classic(base_size = 12) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  ylab("Year") +
+  xlab("Day of the year")
+
+p2
+
+
+p2 <-
+  ggplot(d, aes(x = date_doy, y = factor(species), fill = sex, color = species)) +
+  geom_boxplot(alpha = 0.8, show.legend = TRUE) +
+  scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
+  theme_classic(base_size = 12) +
+  scale_color_manual(values = c("steelblue4", "indianred3")) +
+  scale_fill_manual(values = c("#7aa048", "#E69F00")) +
+  theme(legend.position = "top", plot.title = element_text(hjust = 0.5)) +
+  ylab("Year") +
+  xlab("Day of the year")
+
+p2
+
+
+
+
+# Summarize number of birds caught per day by species and sex
+ds <- d[!is.na(testo), .N, by = .(date_doy, species, sex)]
+
+# Plot
+ggplot(ds, aes(x = factor(date_doy), y = N, fill = interaction(species, sex))) +
+  geom_bar(stat = "identity", position = "stack") +
+  labs(
+    x = "Day of Year", 
+    y = "Number of Birds Caught", 
+    fill = "Species and Sex"
+  ) +
+  theme_minimal()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

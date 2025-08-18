@@ -20,6 +20,7 @@ library(foreach)
 library(ggplot2)
 library(ggparl)
 library(patchwork)
+library(ggnewscale)
 library(knitr)
 library(glmmTMB)
 library(emmeans)
@@ -32,6 +33,7 @@ library(officer)
 
 # load data
 d <- fread("./DATA/REPH_PESA_testo_haema.csv", yaml = TRUE)
+dn <- fread("./DATA/REPH_PESA_nests.csv", yaml = TRUE)
 
 # Lines to run to create html output
 opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
@@ -55,6 +57,9 @@ d[, diff_caught_bled := difftime(bled_time, caught_time, units = 'mins') |>
 # data as Julian
 d[, date_doy := yday(date_)]
 
+# capture date independent of year
+d[, date_y := as.Date(format(date_, "2000-%m-%d"))]
+
 # year as character
 d[, year_ := as.character(year_)]
 d[, .N, by = .(species, year_)]
@@ -66,6 +71,10 @@ d[, sex := factor(sex, levels = c("M", "F"))]
 # min max scale
 d[, .(min(date_doy), max(date_doy))]
 d[, .(min(testo), max(testo))]
+
+# clutch initiation date independent of year
+dn[, initiation_y := as.Date(format(initiation, "2000-%m-%d"))]
+
 
 # start word file for ESM
 ESM <- read_docx()
@@ -99,6 +108,79 @@ pn <- fread(
 # plot settings
 bs <- 12 # base size
 ls <- 3 # labels
+
+#-------------------------------------------------------------------------------
+#' # Sampling period in relation to breeding
+#-------------------------------------------------------------------------------
+
+# years with data by species
+dn[, .N, .(year_, species)]
+dn[, .N, species]
+
+# clutch initiation periods for years with data
+p1 <-
+  ggplot(dn, aes(x = initiation_y, y = factor(species), fill = factor(species))) +
+  geom_boxplot(alpha = 0.7) +
+  # add GnRH sample points
+  geom_point(
+    data = ds_gnrh,
+    aes(x = date_y, y = factor(species)),
+    shape = 23, size = 3, stroke = 1.2, fill = "black",
+    position = position_dodge(width = 0.75)
+  ) +
+  scale_fill_manual(values = c("steelblue4", "indianred3")) +
+  scale_x_date(
+    limits = as.Date(c("2000-05-20", "2000-07-25")),
+    expand = expansion(add = c(0, 0)),
+    date_labels = "%b %d",
+    date_breaks = "7 days"
+  ) +
+  theme_classic(base_size = 12) +
+  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  scale_y_discrete(labels = c(
+    "REPH" = "Red\nphalarope", "PESA" = "Pectoral\nsandpiper"
+  )) +
+  ylab("Species") +
+  xlab("")
+
+
+# exclude GnRH induced samples 
+ds <- d[is.na(GnRH)]
+ds_gnrh <- d[!is.na(GnRH)]  # keep only GnRH samples
+
+p2 <- 
+ggplot(ds, aes(x = date_y, y = factor(species), fill = sex, color = species)) +
+  geom_boxplot(alpha = 0.7, show.legend = TRUE) +
+  scale_color_manual(values = c("steelblue4", "indianred3")) +
+  scale_fill_manual(values = c("#7aa048", "#E69F00")) +
+  new_scale_fill() +
+  # add GnRH sample points
+  geom_point(
+    data = ds_gnrh,
+    aes(x = date_y, y = factor(species), fill = species),
+    shape = 23, size = 3, stroke = 1.2,
+    position = position_dodge(width = 0.75)
+  ) +
+  scale_fill_manual(values = c("steelblue4", "indianred3")) +
+  scale_x_date(
+    limits = as.Date(c("2000-05-20", "2000-07-25")),
+    expand = expansion(add = c(0, 0)),
+    date_labels = "%b %d",
+    date_breaks = "7 days"
+  ) +
+  theme_classic(base_size = 12) +
+  theme(legend.position = "top", plot.title = element_text(hjust = 0.5)) +
+  scale_y_discrete(labels = c(
+    "REPH" = "Red\nphalarope", "PESA" = "Pectoral\nsandpiper"
+  )) +
+  ylab("Species") +
+  xlab("Date")
+
+
+p1 / p2 + plot_layout(heights = c(1, 2)) 
+
+
+
 
 #-------------------------------------------------------------------------------
 #' # Scaled mass index (Peig and Green, 2009)
