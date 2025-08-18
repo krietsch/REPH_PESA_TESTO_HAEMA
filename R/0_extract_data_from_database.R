@@ -11,6 +11,7 @@
 library(data.table)
 library(ggplot2)
 library(DBI)
+library(auksRuak) # https://github.com/krietsch/auksRuak
 
 # file path to SQLite databse files
 scidb <- "C:/Users/jkrietsch/scidb/"
@@ -199,3 +200,82 @@ ggplot(data = d[species == "REPH"]) +
 # save data
 fwrite(d, "./DATA/REPH_PESA_testo_haema.csv", yaml = TRUE)
 
+#-------------------------------------------------------------------------------
+# REPH and PESA nest data
+#-------------------------------------------------------------------------------
+
+# file path to SQLite databse files
+scidb <- "C:/Users/jkrietsch/scidb/"
+
+# database
+con <- dbConnect(RSQLite::SQLite(), paste0(scidb, "REPHatBARROW.sqlite"))
+dn <- dbGetQuery(con, "SELECT * FROM [NESTS]") |> data.table()
+dbDisconnect(con)
+
+# subset own data
+dn <- dn[external == 0]
+
+# transform datetimes (are actually AKDT)
+dn[, initiation := as.POSIXct(initiation, tz = "UTC")]
+
+# change to day of the year
+dn[, initiation_doy := yday(initiation)]
+
+# copy to combine later
+dn_reph <- copy(dn)
+
+# database
+con <- dbConnect(RSQLite::SQLite(), paste0(scidb, "PESAatBARROW.sqlite"))
+dn <- dbGetQuery(con, "SELECT * FROM [NESTS]") |> data.table()
+dbDisconnect(con)
+
+# set names
+setnames(dn, "laying_date", "initiation")
+
+# transform datetimes (are actually AKDT)
+dn[, initiation := as.POSIXct(initiation, tz = "UTC")]
+
+# change to day of the year
+dn[, initiation_doy := yday(initiation)]
+
+# copy to combine later
+dn_pesa <- copy(dn)
+
+# combine data
+d <- rbind(
+  dn_reph[, .(species = "REPH", year_, nest, male_id, 
+              female_id, lat, lon, initiation)],
+  dn_pesa[, .(species = "PESA", year_, nest, male_id = NA, 
+              female_id = id_female, lat = latit, lon = longit, initiation)]
+)
+
+# subset years relevant for this study
+d <- d[year_ %in% c(2005:2009, 2012, 2014, 2017:2019)]
+
+# Change projection
+d[, lat_dec := lat]
+d[, lon_dec := lon]
+
+# remove nests without location
+d <- d[!is.na(lon)]
+st_transform_DT(d)
+
+# assign nests in study site
+# buffer including birds followed flying off plot
+point_over_poly_DT(d, poly = study_site, buffer = 60)
+setnames(d, 'poly_overlap', 'study_site')
+
+# remove nests outside study site
+d <- d[study_site == TRUE]
+
+# remove nests without clutch initiation
+d <- d[!is.na(initiation)]
+
+# clean table
+d <- d[, .(
+  species, year_, nest, male_id, female_id, lat = lat_dec, lon = lon_dec, 
+  initiation
+)]
+
+# save data
+fwrite(d, "./DATA/REPH_PESA_nests.csv", yaml = TRUE)
