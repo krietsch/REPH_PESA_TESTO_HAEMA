@@ -125,7 +125,7 @@ p1 <-
   geom_point(
     data = ds_gnrh,
     aes(x = date_y, y = factor(species)),
-    shape = 23, size = 3, stroke = 1.2, fill = "black",
+    shape = 23, size = 1, stroke = 1.2, fill = "black",
     position = position_dodge(width = 0.75)
   ) +
   scale_fill_manual(values = c("steelblue4", "indianred3")) +
@@ -135,11 +135,16 @@ p1 <-
     date_labels = "%b %d",
     date_breaks = "7 days"
   ) +
-  theme_classic(base_size = 12) +
-  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
+  theme_classic(base_size = bs) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5, size = bs, face = "bold"),
+    axis.title.x = element_text(size = 11)
+  ) +
   scale_y_discrete(labels = c(
     "REPH" = "Red\nphalarope", "PESA" = "Pectoral\nsandpiper"
   )) +
+  ggtitle("Timing of clutch initiation") +
   ylab("Species") +
   xlab("")
 
@@ -158,7 +163,7 @@ ggplot(ds, aes(x = date_y, y = factor(species), fill = sex, color = species)) +
   geom_point(
     data = ds_gnrh,
     aes(x = date_y, y = factor(species), fill = species),
-    shape = 23, size = 3, stroke = 1.2,
+    shape = 23, size = 1, stroke = 1.2,
     position = position_dodge(width = 0.75)
   ) +
   scale_fill_manual(values = c("steelblue4", "indianred3")) +
@@ -168,19 +173,89 @@ ggplot(ds, aes(x = date_y, y = factor(species), fill = sex, color = species)) +
     date_labels = "%b %d",
     date_breaks = "7 days"
   ) +
-  theme_classic(base_size = 12) +
-  theme(legend.position = "top", plot.title = element_text(hjust = 0.5)) +
+  theme_classic(base_size = bs) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5, size = bs, face = "bold"),
+    axis.title.x = element_text(size = 11)
+  ) +
   scale_y_discrete(labels = c(
     "REPH" = "Red\nphalarope", "PESA" = "Pectoral\nsandpiper"
   )) +
+  ggtitle("Timing of captures") +
   ylab("Species") +
   xlab("Date")
 
 
-p1 / p2 + plot_layout(heights = c(1, 2)) 
+### make a combined legend
 
+# dummy data
+dt <- data.table(
+  x = 1:8,
+  y = 1:8,
+  species = rep(c("Pectoral Sandpiper", "Red Phalarope"), 4),
+  sex = rep(c("Male", "Female"), each = 4)
+)
 
+# order factor
+dt[, species := factor(species, levels = c(
+  "Red Phalarope", "Pectoral Sandpiper"
+))]
 
+# legend for species
+p_species <- ggplot(dt, aes(x, y, color = species)) +
+  geom_point(size = 3) +
+  scale_color_manual(
+    name = "Species",
+    values = c(
+      "Pectoral Sandpiper" = "steelblue4", "Red Phalarope" = "indianred3"
+    )
+  ) +
+  theme_classic(base_size = bs) +
+  theme(legend.position = "right") +
+  guides(color = guide_legend(title.position = "left", title.hjust = 1))
+
+# legend for sex
+p_sex <- ggplot(dt, aes(x, y, color = sex)) +
+  geom_point(size = 3) +
+  scale_color_manual(
+    name = "Sex",
+    values = c("Male" = "#7aa048", "Female" = "#E69F00")
+  ) +
+  theme_classic(base_size = bs) +
+  theme(legend.position = "right") +
+  guides(color = guide_legend(title.position = "left", title.hjust = 1))
+
+# legend for GnRH treatment days
+dt <- data.table(x = 1, y = 1, treatment = "GnRH treatment days")
+
+p_gnrh <- ggplot(dt, aes(x, y, shape = treatment)) +
+  geom_point(size = 2, stroke = 1.2, color = "black", fill = "black") +
+  scale_shape_manual(values = c("GnRH treatment days" = 23), name = "") +
+  theme_classic(base_size = bs) +
+  theme(legend.position = "right")
+
+# extract each legend
+leg_species <- get_legend(p_species)
+leg_sex <- get_legend(p_sex)
+leg_gnrh <- get_legend(p_gnrh)
+
+# combine legends
+legend <- plot_grid(leg_species, leg_sex, leg_gnrh,
+  nrow = 1, align = "h"
+)
+
+# combine plots
+p1 / p2 + legend + 
+  plot_layout(heights = c(1, 2, 1)) +
+  plot_annotation(tag_levels = list(c("a", "b"), ""))
+
+# save plot
+ggsave(
+  "./OUTPUTS/FIGURES/timing_of_sampling.tiff",
+  plot = last_plot(), width = 177, height = 110,
+  units = c("mm"), dpi = "print"
+)
 
 #-------------------------------------------------------------------------------
 #' # Scaled mass index (Peig and Green, 2009)
