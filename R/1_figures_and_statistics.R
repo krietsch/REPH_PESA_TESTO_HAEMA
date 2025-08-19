@@ -115,11 +115,15 @@ ls <- 3 # labels
 
 # years with data by species
 dn[, .N, .(year_, species)]
-dn[, .N, species]
+
+# sample size
+dns <- dn[, .N, species]
 
 # clutch initiation periods for years with data
 p1 <-
-  ggplot(dn, aes(x = initiation_y, y = factor(species), fill = factor(species))) +
+  ggplot(
+    dn, aes(x = initiation_y, y = factor(species), fill = factor(species))
+  ) +
   geom_boxplot(alpha = 0.7) +
   # add GnRH sample points
   geom_point(
@@ -129,6 +133,16 @@ p1 <-
     position = position_dodge(width = 0.75)
   ) +
   scale_fill_manual(values = c("steelblue4", "indianred3")) +
+  # add sample size
+  geom_text(
+    data = dns,
+    aes(
+      x = as.Date("2000-07-20"),
+      y = factor(species), label = paste0("N = ", N)
+    ),
+    inherit.aes = FALSE,
+    size = ls
+  ) +
   scale_x_date(
     limits = as.Date(c("2000-05-20", "2000-07-25")),
     expand = expansion(add = c(0, 0)),
@@ -148,13 +162,20 @@ p1 <-
   ylab("Species") +
   xlab("")
 
-
-# exclude GnRH induced samples 
+# exclude GnRH induced samples
 ds <- d[is.na(GnRH)]
 ds_gnrh <- d[!is.na(GnRH)]  # keep only GnRH samples
 
-p2 <- 
-ggplot(ds, aes(x = date_y, y = factor(species), fill = sex, color = species)) +
+# sample size
+dss <- ds[, .N, .(species, sex)]
+du <- unique(ds, by = "ID")
+du <- du[, .(N_ind = .N), .(species, sex)]
+dss <- merge(dss, du, by = c("species", "sex"))
+dss[, sample_size := paste0("N = ", N, " | ", N_ind)]
+
+# plot timing of sampling
+p2 <-
+  ggplot(ds, aes(x = date_y, y = factor(species), fill = sex, color = species)) +
   geom_boxplot(alpha = 0.7, show.legend = TRUE) +
   scale_color_manual(values = c("steelblue4", "indianred3")) +
   scale_fill_manual(values = c("#7aa048", "#E69F00")) +
@@ -165,6 +186,19 @@ ggplot(ds, aes(x = date_y, y = factor(species), fill = sex, color = species)) +
     aes(x = date_y, y = factor(species), fill = species),
     shape = 23, size = 1, stroke = 1.2,
     position = position_dodge(width = 0.75)
+  ) +
+  # add sample size
+  geom_text(
+    data = dss,
+    aes(
+      x = as.Date("2000-07-20"),
+      y = factor(species),
+      group = sex,
+      label = sample_size
+    ),
+    position = position_dodge(width = 0.75),
+    inherit.aes = FALSE,
+    size = ls
   ) +
   scale_fill_manual(values = c("steelblue4", "indianred3")) +
   scale_x_date(
@@ -246,14 +280,14 @@ legend <- plot_grid(leg_species, leg_sex, leg_gnrh,
 )
 
 # combine plots
-p1 / p2 + legend + 
+p1 / p2 + legend +
   plot_layout(heights = c(1, 2, 1)) +
   plot_annotation(tag_levels = list(c("a", "b"), ""))
 
 # save plot
 ggsave(
   "./OUTPUTS/FIGURES/timing_of_sampling.tiff",
-  plot = last_plot(), width = 177, height = 110,
+  plot = last_plot(), width = 177, height = 120,
   units = c("mm"), dpi = "print"
 )
 
