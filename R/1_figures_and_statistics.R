@@ -21,6 +21,7 @@ library(ggplot2)
 library(ggparl)
 library(patchwork)
 library(ggnewscale)
+library(cowplot)
 library(knitr)
 library(glmmTMB)
 library(emmeans)
@@ -119,6 +120,10 @@ dn[, .N, .(year_, species)]
 # sample size
 dns <- dn[, .N, species]
 
+# exclude GnRH induced samples
+ds <- d[is.na(GnRH)]
+ds_gnrh <- d[!is.na(GnRH)]  # keep only GnRH samples
+
 # clutch initiation periods for years with data
 p1 <-
   ggplot(
@@ -161,10 +166,6 @@ p1 <-
   ggtitle("Timing of clutch initiation") +
   ylab("Species") +
   xlab("")
-
-# exclude GnRH induced samples
-ds <- d[is.na(GnRH)]
-ds_gnrh <- d[!is.na(GnRH)]  # keep only GnRH samples
 
 # sample size
 dss <- ds[, .N, .(species, sex)]
@@ -749,7 +750,7 @@ ID_h <- ds[GnRH == "high"]$ID
 ds[ID %in% ID_h, GnRH := "high"]
 
 # check dates
-ds[, .N, .(species, year_, date_doy)]
+ds[, .N, .(species, year_, date_doy, date_y)]
 ds[, species_sample := paste0(species, "_", GnRH_sample)]
 
 # min max scale
