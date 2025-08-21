@@ -3,4 +3,5 @@
 .RData
 .Ruserdata
 OUTPUTS/FIGURES/old
+R/old
 previous_versions/
