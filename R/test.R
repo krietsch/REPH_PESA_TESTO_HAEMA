@@ -191,7 +191,7 @@ summary(m4)
 plot(allEffects(m4))
 
 
-# model
+# final model
 m <- glmmTMB(
   testo_log ~ species * sex * poly(date_doy, 2) + smi_z +
     (1 | year_) + (1 | ID),
@@ -204,8 +204,44 @@ summary(m)
 plot(allEffects(m))
 
 
+library(car)
+Anova(m, type = 3)
+
+
+emtrends(m, ~ sex, var = "date_doy", at = list(date_doy = median(ds$date_doy)))
+
+emtrends(m, ~ sex | species, var = "date_doy",
+         at = list(date_doy = median(ds$date_doy)))
+
+
+# slopes of date_doy for each sex within species
+tr <- emtrends(m, ~ sex | species, var = "date_doy")
+
+# show tests of whether slope ≠ 0
+summary(tr, infer = c(TRUE, TRUE)) 
+
+
+
+# get slopes for date_doy by sex within species
+tr <- emtrends(m, ~ sex | species, var = "date_doy")
+
+# test difference in slopes between species for males
+contrast(tr, method = "pairwise", by = "sex")
+
+
+
+emm <- emmeans(m, ~ species * sex, type = "response")
+
+# all pairwise comparisons (Tukey-adjusted)
+pairs(emm, adjust = "tukey")
+
+
 emm <- emmeans(m, ~ species | sex)  
 pairs(emm, by = "sex")
+
+
+emm <- emmeans(m, ~ sex | species)  
+pairs(emm, by = "species")
 
 dm <- ds[sex == "M"]
 
@@ -216,54 +252,23 @@ e <- effect("species:sex", m,
 
 e <- e[sex == "M"]
 
+#-------------------------------------------------------------------------------
+#' # Effect of time
+#-------------------------------------------------------------------------------
 
-# subset period with data
-dr <- dm[, .(first_data = min(date_doy), last_data = max(date_doy)),
-         by = species
-]
+# convert datetime to hour
+ds[, HH := dt2hh(caught_time)]
 
-# plot for males
+# model
+m <- glmmTMB(
+  testo_log ~ species + sex * poly(date_doy, 2) + smi_z + sin(hh2rad(HH)) + cos(hh2rad(HH)) +
+    (1 | year_) + (1 | ID),
+  family = gaussian(link = "identity"),
+  data = ds
+)
 
-  ggplot() +
-  ggtitle("Males") +
-  geom_violin(data = dm, aes(species, testo, fill = species), alpha = 0.7) +
-  geom_point(
-    data = e, aes(species, 10^fit, color = species),
-    position = position_dodge(0.5), size = 2
-  ) +
-  geom_linerange(
-    data = e, aes(
-      x = species, ymin = 10^upper, ymax = 10^lower,
-      color = species
-    ), linewidth = 0.5,
-    position = position_dodge(width = 0.5)
-  ) +
-  scale_fill_manual(values = c("steelblue4", "indianred3")) +
-  scale_color_manual(values = c("black", "black")) +
-
-  scale_y_log10(
-    limits = c(0.01, 350),
-    breaks = c(0.01, 0.1, 1, 10, 100),
-    labels = c(0.01, 0.1, 1, 10, 100)
-  ) +
-  annotation_logticks(sides = "l") +
-  scale_x_discrete(
-    labels = c("PESA" = "Pectoral sandpiper", "REPH" = "Red phalarope")
-  ) +
-  theme_classic(base_size = bs) +
-  theme(
-    legend.position = "none",
-    plot.title = element_text(hjust = 0.5, size = bs, face = "bold")
-  ) +
-  ylab("Testosterone (ng/ml)") +
-  xlab("Species")
-
-
-
-
-
-
-
+plot(allEffects(m))
+summary(m)
 
 
 
@@ -342,166 +347,9 @@ chisq.test(chisq_matrix)
 
 
 
-
-
-# model
-m2 <- glmmTMB(
-  testo_log ~ species * sex + sex * poly(date_doy, 2) + species * sex * smi_z +
-    (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-# model
-m3 <- glmmTMB(
-  testo_log ~ species * sex + species * poly(date_doy, 2) + species * sex * smi_z +
-    (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-# model
-m4 <- glmmTMB(
-  testo_log ~ species * sex + poly(date_doy, 2) + species * sex * smi_z +
-    (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-# model
-m5 <- glmmTMB(
-  testo_log ~ species * sex + poly(date_doy, 2) + species * sex * smi_z +
-    (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-# model
-m5 <- glmmTMB(
-  testo_log ~ species * sex + poly(date_doy, 2) + species * sex * smi_z +
-    (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-
-AIC(m1, m2, m3, m4)
-
-
-
-
-
-
-
-
-
-
-
-ds[is.na(testo_log)]
-ds[is.na(date_doy)]
-ds[is.na(smi_z)]
-
-
-ds <- ds[!is.na(HH)]
-    
-
-
-m_reduced <- update(m, . ~ . - species:sex:smi_z)
-m_reduced <- update(m_reduced, . ~ . - species:sex:poly(date_doy, 2))
-m_reduced <- update(m_reduced, . ~ . - sex:smi_z)
-m_reduced <- update(m_reduced, . ~ . - species:smi_z)
-m_reduced <- update(m_reduced, . ~ . - sex:poly(date_doy, 2))
-
-
-anova(m, m_reduced, test = "Chisq")  # LRT
-
-
-
-plot(allEffects(m_reduced))
-summary(m_reduced)
-
-
-
-
-m1 <- glmmTMB(
-  testo_log ~ sin(hh2rad(HH)) + cos(hh2rad(HH)) + species * sex + species * poly(date_doy, 2) + smi_z + (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-
-ds[is.na(HH)]
-
-ds[, .N, .(species, sex)]
-
-
-m1 <- glmmTMB(
-  testo_log ~ sin(hh2rad(HH)) + cos(hh2rad(HH)) + species * sex + sex * poly(date_doy, 2) + smi_z + (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-
-m2 <- glmmTMB(
-  testo_log ~ species * sex + sex * poly(date_doy, 2) + smi_z + (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-anova(m1, m2, test = "Chisq")  # LRT
-
-summary(m1)
-summary(m2)
-
-
-plot(allEffects(m2))
-
-
-library(emmeans)
-
-emm <- emmeans(m2, ~ species * sex)
-
-
-
-pairs(emm, by = "sex")  
-
-
-
-
-
-
-library(MuMIn)
-
-options(na.action = "na.fail")  # required for dredge
-
-m_full <- glmmTMB(
-  testo_log ~ 
-    species * sex * poly(date_doy, 2) +
-    species * sex * smi_z +
-    (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-dd <- dredge(m_full)  # all possible subsets of fixed effects
-dd       
-
-
-
-
-
-m <- glmmTMB(
-  testo_log ~ sin(hh2rad(HH)) + species + poly(date_doy, 2) * species + smi_z + (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-plot(allEffects(m))
-summary(m)
-
-
-
-
+#-------------------------------------------------------------------------------
+#' # Haematocrit between species comparison
+#-------------------------------------------------------------------------------
 
 # exclude GnRH induced samples
 ds <- d[is.na(GnRH)]
@@ -510,80 +358,19 @@ ds <- d[is.na(GnRH)]
 ds <- ds[!is.na(haema)]
 
 
-
-
-m <- glmmTMB(
-  haema ~ sex * species * poly(date_doy, 2) + species * sex * testo_log + smi_z +
-    (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-m <- glmmTMB(
-  haema ~ sex * species * poly(date_doy, 2) + testo_log + smi_z +
-    (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-# model summary
-summary(m)
-plot(allEffects(m))
-
-# Create polynomial columns first
-ds$pd1 <- poly(ds$date_doy, 2)[,1]
-ds$pd2 <- poly(ds$date_doy, 2)[,2]
-
-m2 <- glmmTMB(
-  haema ~ sex * species * pd1 + sex * pd2 + testo_log + smi_z +
-    (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-
-# model summary
-summary(m2)
-plot(allEffects(m2))
-
-anova(m, m2, test = "Chisq")
-
-
-
-
-m3 <- glmmTMB(
-  haema ~ species * pd1 + sex * pd2 + testo_log + smi_z +
-    (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
-
-
-# model summary
-summary(m3)
-plot(allEffects(m3))
-
-anova(m2, m3, test = "Chisq")
-
-
-
-
-
-
 m1 <- glmmTMB(
-  haema ~ sex * species * poly(date_doy, 2) + species * sex * testo_log + species * sex * smi_z +
+  haema ~ sex * species * poly(date_doy, 2) + sex * species * testo_log + sex * species * smi_z +
     (1 | year_) + (1 | ID),
   family = gaussian(link = "identity"),
   data = ds
 )
-
 
 # model summary
 summary(m1)
 plot(allEffects(m1))
 
 # reduce model
-m2 <- update(m1, . ~ . - sex:species:smi_z)
+m2 <- update(m1, . ~ . - sex:species:testo_log)
 anova(m1, m2, test = "Chisq")
 
 # model summary
@@ -591,7 +378,7 @@ summary(m2)
 plot(allEffects(m2))
 
 # reduce model
-m3 <- update(m2, . ~ . - sex:species:testo_log)
+m3 <- update(m2, . ~ . - sex:species:smi_z)
 anova(m2, m3, test = "Chisq")
 
 # model summary
@@ -599,12 +386,7 @@ summary(m3)
 plot(allEffects(m3))
 
 # reduce model
-m4 <- glmmTMB(
-  haema ~ sex * species * date_doy + species * testo_log + sex * testo_log + sex * smi_z + sex * poly(date_doy, 2) +
-    (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = ds
-)
+m4 <- update(m3, . ~ . - species:smi_z)
 anova(m3, m4, test = "Chisq")
 
 # model summary
@@ -620,21 +402,50 @@ summary(m5)
 plot(allEffects(m5))
 
 # reduce model
-m6 <- update(m5, . ~ . - sex:species:poly(date_doy, 2))
+m6 <- update(m5, . ~ . - species:testo_log)
 anova(m5, m6, test = "Chisq")
 
 # model summary
 summary(m6)
 plot(allEffects(m6))
 
+# reduce model
+m7 <- update(m6, . ~ . - sex:testo_log)
+anova(m6, m7, test = "Chisq")
+
+# model summary
+summary(m7)
+plot(allEffects(m7))
+
+# reduce model
+m8 <- glmmTMB(
+  haema ~ sex * species * date_doy + testo_log + smi_z +
+    (1 | year_) + (1 | ID),
+  family = gaussian(link = "identity"),
+  data = ds
+)
+
+anova(m7, m8, test = "Chisq")
+
+# model summary
+summary(m8)
+plot(allEffects(m8))
 
 
 
 
 
+# final reduced model
+m <- glmmTMB(
+  haema ~ sex * species * poly(date_doy, 2) + testo_log + smi_z +
+    (1 | year_) + (1 | ID),
+  family = gaussian(link = "identity"),
+  data = ds
+)
 
-
-
+# model summary
+summary(m)
+plot(allEffects(m))
 
 
 
