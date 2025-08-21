@@ -327,11 +327,96 @@ ggplot(data = d) +
 d[, .(min(smi_z, na.rm = TRUE), max(smi_z, na.rm = TRUE))]
 
 #-------------------------------------------------------------------------------
-#' # Testosterone between species comparison
+#' # Testosterone between species and sexes comparison
 #-------------------------------------------------------------------------------
 
 # exclude GnRH induced samples
 ds <- d[is.na(GnRH)]
+
+# start with full model to check interactions with sex and species
+
+# model
+m1 <- glmmTMB(
+  testo_log ~ species * sex * poly(date_doy, 2) + species * sex * smi_z +
+    (1 | year_) + (1 | ID),
+  family = gaussian(link = "identity"),
+  data = ds
+)
+
+# model summary
+summary(m1)
+plot(allEffects(m1))
+
+# reduce model
+m2 <- update(m1, . ~ . - species:sex:smi_z)
+anova(m1, m2, test = "Chisq")
+
+# model summary
+summary(m2)
+plot(allEffects(m2))
+
+# reduce model
+m3 <- update(m2, . ~ . - sex:smi_z)
+anova(m2, m3, test = "Chisq")
+
+# model summary
+summary(m3)
+plot(allEffects(m3))
+
+# reduce model
+m4 <- update(m3, . ~ . - species:smi_z)
+anova(m3, m4, test = "Chisq")
+
+# model summary
+summary(m4)
+plot(allEffects(m4))
+
+
+# final model
+m <- glmmTMB(
+  testo_log ~ species * sex * poly(date_doy, 2) + smi_z +
+    (1 | year_) + (1 | ID),
+  family = gaussian(link = "identity"),
+  data = ds
+)
+
+# model summary
+summary(m)
+plot(allEffects(m))
+
+
+emm <- emmeans(m, ~ species | sex)  
+pairs(emm, by = "sex")
+
+emm <- emmeans(m, ~ sex | species)  
+pairs(emm, by = "species")
+
+
+e <- effect("species:sex", m, xlevels = list(species = "PESA", sex = "M")) |>
+  data.frame() |>
+  setDT()
+
+e <- e[sex == "M"]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ##### subset males
 dm <- ds[sex == "M"]
