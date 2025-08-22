@@ -59,7 +59,7 @@ d[, diff_caught_bled := difftime(bled_time, caught_time, units = 'mins') |>
 d[, date_doy := yday(date_)]
 
 # capture date independent of year
-d[, date_y := as.Date(format(date_, "2000-%m-%d"))]
+d[, date_y := as.Date(format(date_, "2100-%m-%d"))]
 
 # year as character
 d[, year_ := as.character(year_)]
@@ -74,7 +74,7 @@ d[, .(min(date_doy), max(date_doy))]
 d[, .(min(testo), max(testo))]
 
 # clutch initiation date independent of year
-dn[, initiation_y := as.Date(format(initiation, "2000-%m-%d"))]
+dn[, initiation_y := as.Date(format(initiation, "2100-%m-%d"))]
 
 
 # start word file for ESM
@@ -89,14 +89,21 @@ pn <- fread(
   poly(date_doy, 2)1;                  Day of the year (linear)
   poly(date_doy, 2)2;                  Day of the year (quadratic)
   sexF;                                Sex (female)
-  sexF:date_doy;                       Sex (female):Day of the year 
+  speciesREPH:sexF;                    Species x Sex
+  sexF:date_doy;                       Sex:Day of the year
+  speciesREPH:poly(date_doy, 2)1;      Species x Day of the year (linear)
+  speciesREPH:poly(date_doy, 2)2;      Species x Day of the year (quadratic)
+  sexF:poly(date_doy, 2)1;             Sex x Day of the year (linear)
+  sexF:poly(date_doy, 2)2;             Sex x Day of the year (quadratic)
+  speciesREPH:sexF:poly(date_doy, 2)1; Species x Sex x Day of the year (linear)
+  speciesREPH:sexF:poly(date_doy, 2)2; Species x Sex x Day of the year (quadratic)
   testo_log;                           Testosterone (logarithmic)
   GnRH_sampleGnRH-induced;             GnRH induced
   GnRHlow;                             Low GnRH concentration
-  speciesREPH:GnRH_sampleGnRH-induced; Species (red phalarope):GnRH induced
+  speciesREPH:GnRH_sampleGnRH-induced; Species (red phalarope) x GnRH induced
   smi_z;                               Scaled mass index
-  speciesREPH:smi_z;                   Species (red phalarope):Scaled mass index
-  sexF:smi_z;                          Sex (female):Scaled mass index
+  speciesREPH:smi_z;                   Species (red phalarope) x Scaled mass index
+  sexF:smi_z;                          Sex (female) x Scaled mass index
   sd__(Intercept);                     Random intercept
   sd__(Intercept)_year_;               Random intercept (year)
   sd__(Intercept)_ID;                  Random intercept (ID)
@@ -142,14 +149,14 @@ p1 <-
   geom_text(
     data = dns,
     aes(
-      x = as.Date("2000-07-20"),
+      x = as.Date("2100-07-20"),
       y = factor(species), label = paste0("N = ", N)
     ),
     inherit.aes = FALSE,
     size = ls
   ) +
   scale_x_date(
-    limits = as.Date(c("2000-05-20", "2000-07-25")),
+    limits = as.Date(c("2100-05-20", "2100-07-25")),
     expand = expansion(add = c(0, 0)),
     date_labels = "%b %d",
     date_breaks = "7 days"
@@ -192,7 +199,7 @@ p2 <-
   geom_text(
     data = dss,
     aes(
-      x = as.Date("2000-07-20"),
+      x = as.Date("2100-07-20"),
       y = factor(species),
       group = sex,
       label = sample_size
@@ -203,7 +210,7 @@ p2 <-
   ) +
   scale_fill_manual(values = c("steelblue4", "indianred3")) +
   scale_x_date(
-    limits = as.Date(c("2000-05-20", "2000-07-25")),
+    limits = as.Date(c("2100-05-20", "2100-07-25")),
     expand = expansion(add = c(0, 0)),
     date_labels = "%b %d",
     date_breaks = "7 days"
@@ -277,7 +284,7 @@ leg_gnrh <- get_legend(p_gnrh)
 
 # combine legends
 legend <- plot_grid(leg_species, leg_sex, leg_gnrh,
-  nrow = 1, align = "h"
+                    nrow = 1, align = "h"
 )
 
 # combine plots
@@ -301,7 +308,7 @@ dID <- unique(d[, wing_mean_ID := mean(wing, na.rm = TRUE), by = ID], by = "ID")
 
 # mean wing length by species and sex
 dPop <- dID[, .(wing_mean_pop = mean(wing_mean_ID, na.rm = TRUE)),
-  by = .(species, sex)
+            by = .(species, sex)
 ]
 
 # slope for each category
@@ -391,6 +398,45 @@ m <- glmmTMB(
 summary(m)
 plot(allEffects(m))
 
+# check mpdel assumptions
+res <-simulateResiduals(m, plot = T)
+testDispersion(res)
+
+
+### create clean summary table
+y <- tidy(m) |> data.table()
+x <- r2(m, tolerance = 1e-10) |> data.table()
+
+setnames(x, c("estimate"))
+y[term == "sd__(Intercept)", term := paste0(term, "_", group)]
+x[, estimate := as.numeric(estimate)]
+x[, term := c("r2cond", "r2marg")]
+y <- rbindlist(list(y, x), use.names = TRUE, fill = TRUE)
+y[, row_order := rownames(y) |> as.numeric()]
+y <- merge(y, pn, by.x = "term", by.y = "parname")
+setorder(y, row_order)
+y <- y[, .(
+  Parameter = parameter, Estimate = estimate, SE = std.error,
+  Statistic = statistic, p = p.value
+)]
+y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
+
+# save table in word
+ft <- flextable(y) |> autofit()
+ft <- bold(ft, bold = TRUE, part = "header")
+ESM <- ESM |>
+  body_add_par(paste0("Table S1. LMM testo")) |>
+  body_add_par("") |>
+  body_add_flextable(ft)
+ESM <- ESM |> body_add_break(pos = "after")
+
+
+# post-hoc tests
+tr <- emtrends(m, ~ species | sex, var = "date_doy")
+pairs(tr)  
+
+tr <- emtrends(m, ~ sex | species, var = "date_doy")
+pairs(tr)  
 
 emm <- emmeans(m, ~ species | sex)  
 pairs(emm, by = "sex")
@@ -407,53 +453,6 @@ pairs(emm)
 e <- effect("species:sex", m, xlevels = list(species = "PESA", sex = "M")) |>
   data.frame() |>
   setDT()
-
-
-
-# plot
-ggplot() +
-  # raw data points with violin
-  geom_violin(data = ds, aes(species, 10^testo_log, fill = species, group = interaction(species, sex)), alpha = 0.5) +
-
-  # model predicted means
-  # geom_point(data = e, aes(species, 10^fit, color = sex), position = position_dodge(0.5), size = 3) +
-  # geom_linerange(data = e, aes(x = species, ymin = 10^lower, ymax = 10^upper, color = sex), 
-  #                position = position_dodge(0.5), linewidth = 0.7) +
-  # 
-  # # colors and fills
-  # scale_fill_manual(values = c("steelblue4", "indianred3")) +
-  # scale_color_manual(values = c("steelblue4", "indianred3")) +
-  
-  # log-scale y-axis
-  scale_y_log10(
-    limits = c(0.01, 350),
-    breaks = c(0.01, 0.1, 1, 10, 100),
-    labels = c(0.01, 0.1, 1, 10, 100)
-  ) +
-  annotation_logticks(sides = "l") +
-  
-  # labels
-  scale_x_discrete(labels = c("PESA" = "Pectoral sandpiper", "REPH" = "Red phalarope")) +
-  ylab("Testosterone (ng/ml)") +
-  xlab("Species") +
-  
-  # theme
-  theme_classic(base_size = 14) +
-  theme(
-    legend.title = element_blank(),
-    plot.title = element_text(hjust = 0.5, face = "bold")
-  ) +
-  ggtitle("Testosterone by Species and Sex")
-
-
-
-
-
-
-
-
-
-
 
 # plot for males
 p1 <-
@@ -548,18 +547,24 @@ es <- merge(es, dr, by = c("species", "sex"), all.x = TRUE)
 es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
 es <- es[in_range == TRUE]
 
+# transform into date
+es[, date_y := as.Date(date_doy - 1, origin = "2100-01-01")]
+ds[, date_y := as.Date(format(date_, "2100-%m-%d"))]
+
 # plot for season effect on males
 p3 <-
   ggplot() +
   geom_point(
-    data = ds[sex == "M"], aes(date_doy, testo, color = species), size = 0.5, alpha = 0.5
+    data = ds[sex == "M"], aes(date_y, testo, color = species),
+    size = 0.5, alpha = 0.5
   ) +
   geom_line(
-    data = es[sex == "M"], aes(y = 10^fit, x = date_doy, color = species), linewidth = 0.8
+    data = es[sex == "M"], aes(y = 10^fit, x = date_y, color = species),
+    linewidth = 0.8
   ) +
   geom_ribbon(
     data = es[sex == "M"], aes(
-      y = 10^fit, x = date_doy, fill = species,
+      y = 10^fit, x = date_y, fill = species,
       ymin = 10^lower, ymax = 10^upper
     ), alpha = 0.2
   ) +
@@ -571,24 +576,29 @@ p3 <-
     labels = c(0.001, 0.01, 0.1, 1, 10, 100)
   ) +
   annotation_logticks(sides = "l") +
-  scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
+  scale_x_date(
+    limits = as.Date(c("2100-05-20", "2100-07-25")),
+    expand = expansion(add = c(0, 0)),
+    date_labels = "%b %d",
+    breaks = seq(as.Date("2100-05-20"), as.Date("2100-07-25"), by = "14 days")
+  ) +
   theme_classic(base_size = bs) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
   ylab("Testosterone (ng/ml)") +
-  xlab("Day of the year")
+  xlab("Date")
 
 # plot for season effect on females
 p4 <-
   ggplot() +
   geom_point(
-    data = ds[sex == "F"], aes(date_doy, testo, color = species), size = 0.5, alpha = 0.5
+    data = ds[sex == "F"], aes(date_y, testo, color = species), size = 0.5, alpha = 0.5
   ) +
   geom_line(
-    data = es[sex == "F"], aes(y = 10^fit, x = date_doy, color = species), linewidth = 0.8
+    data = es[sex == "F"], aes(y = 10^fit, x = date_y, color = species), linewidth = 0.8
   ) +
   geom_ribbon(
     data = es[sex == "F"], aes(
-      y = 10^fit, x = date_doy, fill = species,
+      y = 10^fit, x = date_y, fill = species,
       ymin = 10^lower, ymax = 10^upper
     ), alpha = 0.2
   ) +
@@ -600,37 +610,19 @@ p4 <-
     labels = c(0.001, 0.01, 0.1, 1, 10, 100)
   ) +
   annotation_logticks(sides = "l") +
-  scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
+  scale_x_date(
+    limits = as.Date(c("2100-05-20", "2100-07-25")),
+    expand = expansion(add = c(0, 0)),
+    date_labels = "%b %d",
+    breaks = seq(as.Date("2100-05-20"), as.Date("2100-07-25"), by = "14 days")
+  ) +
   theme_classic(base_size = bs) +
   theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
   ylab("Testosterone (ng/ml)") +
-  xlab("Day of the year")
+  xlab("Date")
 
 
 ### effect of smi_z on testo
-es <- effect("smi_z", m,
-             xlevels = list(
-               smi_z = seq(min(ds$smi_z, na.rm=TRUE),
-                           max(ds$smi_z, na.rm=TRUE),
-                           length.out = 200),
-               sex = levels(ds$sex),
-               species = levels(ds$species)
-             )) |>
-  data.frame() |>
-  setDT()
-
-# subset period with data
-dr <- ds[, .(
-  first_data = min(smi_z, na.rm = TRUE),
-  last_data = max(smi_z, na.rm = TRUE)
-),
-by = .(species, sex)
-]
-es <- merge(es, dr, by = c("species", "sex"), all.x = TRUE)
-es[, in_range := smi_z %between% c(first_data, last_data), by = 1:nrow(es)]
-es <- es[in_range == TRUE]
-
-
 
 # define the range of smi_z
 smi_range <- seq(
@@ -640,14 +632,11 @@ smi_range <- seq(
 )
 
 # get estimated marginal means along smi_z, separately by sex and species
-emtab <- emmeans(
+es <- emmeans(
   m,
   ~ sex * species | smi_z,
   at = list(smi_z = smi_range)
-)
-
-# convert to data.table
-es <- as.data.frame(emtab) |>setDT()
+) |> as.data.frame(emtab) |> setDT()
 
 # subset period with data
 dr <- ds[, .(
@@ -725,6 +714,16 @@ p6 <-
   xlab("Scaled mass index")
 
 
+# merge plots
+p1 + p2 + p3 + p4 + p5 + p6 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = "a")
+
+ggsave(
+  "./OUTPUTS/FIGURES/testo_by_sex_and_species_new.tiff",
+  plot = last_plot(), width = 177, height = 264,
+  units = c("mm"), dpi = "print"
+)
 
 
 
@@ -804,335 +803,6 @@ p6 <-
 
 # plot(allEffects(m))
 # summary(m)
-
-# extract season effect from model for plot
-es <- effect("species:poly(date_doy, 2)", m, xlevels = 1000) |>
-  data.frame() |>
-  setDT()
-
-# subset period with data
-dr <- dm[, .(first_data = min(date_doy), last_data = max(date_doy)),
-  by = species
-]
-es <- merge(es, dr, by = c("species"), all.x = TRUE)
-es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
-es <- es[in_range == TRUE]
-
-# plot for males
-p1 <-
-  ggplot() +
-  ggtitle("Males") +
-  geom_violin(data = dm, aes(species, testo, fill = species), alpha = 0.7) +
-  geom_point(
-    data = e, aes(species, 10^fit, color = species),
-    position = position_dodge(0.5), size = 2
-  ) +
-  geom_linerange(
-    data = e, aes(
-      x = species, ymin = 10^upper, ymax = 10^lower,
-      color = species
-    ), linewidth = 0.5,
-    position = position_dodge(width = 0.5)
-  ) +
-  scale_fill_manual(values = c("steelblue4", "indianred3")) +
-  scale_color_manual(values = c("black", "black")) +
-  geom_text(
-    data = dms, aes(species, Inf, label = sample_size),
-    vjust = 1, size = ls
-  ) +
-  scale_y_log10(
-    limits = c(0.01, 350),
-    breaks = c(0.01, 0.1, 1, 10, 100),
-    labels = c(0.01, 0.1, 1, 10, 100)
-  ) +
-  annotation_logticks(sides = "l") +
-  scale_x_discrete(
-    labels = c("PESA" = "Pectoral sandpiper", "REPH" = "Red phalarope")
-  ) +
-  theme_classic(base_size = bs) +
-  theme(
-    legend.position = "none",
-    plot.title = element_text(hjust = 0.5, size = bs, face = "bold")
-  ) +
-  ylab("Testosterone (ng/ml)") +
-  xlab("Species")
-
-# effect of season
-p3 <-
-  ggplot() +
-  geom_point(
-    data = dm, aes(date_doy, testo, color = species), size = 0.5, alpha = 0.5
-  ) +
-  geom_line(
-    data = es, aes(y = 10^fit, x = date_doy, color = species), size = 0.8
-  ) +
-  geom_ribbon(
-    data = es, aes(
-      y = 10^fit, x = date_doy, fill = species,
-      ymin = 10^lower, ymax = 10^upper
-    ), alpha = 0.2
-  ) +
-  scale_color_manual(values = c("steelblue4", "indianred3")) +
-  scale_fill_manual(values = c("steelblue4", "indianred3")) +
-  scale_y_log10(
-    limits = c(0.001, 350),
-    breaks = c(0.001, 0.01, 0.1, 1, 10, 100),
-    labels = c(0.001, 0.01, 0.1, 1, 10, 100)
-  ) +
-  annotation_logticks(sides = "l") +
-  scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
-  theme_classic(base_size = bs) +
-  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
-  ylab("Testosterone (ng/ml)") +
-  xlab("Day of the year")
-
-# effect of smi_z
-es <- effect("species:smi_z", m, xlevels = 1000) |>
-  data.frame() |>
-  setDT()
-
-# subset period with data
-dr <- dm[, .(
-  first_data = min(smi_z, na.rm = TRUE),
-  last_data = max(smi_z, na.rm = TRUE)
-),
-by = species
-]
-es <- merge(es, dr, by = c("species"), all.x = TRUE)
-es[, in_range := smi_z %between% c(first_data, last_data), by = 1:nrow(es)]
-es <- es[in_range == TRUE]
-
-p5 <-
-  ggplot() +
-  geom_point(
-    data = dm[!is.na(smi_z)], 
-    aes(smi_z, testo, color = species), size = 0.5, alpha = 0.5
-  ) +
-  geom_line(
-    data = es, aes(y = 10^fit, x = smi_z, color = species), size = 0.8
-  ) +
-  geom_ribbon(data = es, aes(
-    y = 10^fit, x = smi_z, fill = species,
-    ymin = 10^lower, ymax = 10^upper
-  ), alpha = 0.2) +
-  scale_color_manual(values = c("steelblue4", "indianred3")) +
-  scale_fill_manual(values = c("steelblue4", "indianred3")) +
-  scale_y_log10(
-    limits = c(0.001, 350),
-    breaks = c(0.001, 0.01, 0.1, 1, 10, 100),
-    labels = c(0.001, 0.01, 0.1, 1, 10, 100)
-  ) +
-  annotation_logticks(sides = "l") +
-  scale_x_continuous(
-    limits = c(-4.5, 4.5), expand = expansion(add = c(0, 0)),
-    breaks = c(-4, -2, 0, 2, 4)
-  ) +
-  theme_classic(base_size = bs) +
-  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
-  ylab("Testosterone (ng/ml)") +
-  xlab("Scaled mass index")
-
-###### subset females
-df <- ds[sex == "F"]
-
-# sample size
-dfs <- df[, .N, by = species]
-du <- unique(df, by = "ID")
-du <- du[, .(N_ind = .N), by = species]
-dfs <- merge(dfs, du, by = "species")
-dfs[, sample_size := paste0("N = ", N, " | ", N_ind)]
-
-# model
-m <- glmmTMB(
-  testo_log ~ species + date_doy + smi_z + (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = df
-)
-
-plot(allEffects(m))
-summary(m)
-
-# res <- simulateResiduals(m, plot = T)
-# testDispersion(res)
-
-e <- effect("species", m, xlevels = 2) |>
-  data.frame() |>
-  setDT()
-
-
-# create clean summary table
-y <- tidy(m) |> data.table()
-x <- r2(m) |> data.table()
-
-setnames(x, c("estimate"))
-y[term == "sd__(Intercept)", term := paste0(term, "_", group)]
-x[, estimate := as.numeric(estimate)]
-x[, term := c("r2cond", "r2marg")]
-y <- rbindlist(list(y, x), use.names = TRUE, fill = TRUE)
-y[, row_order := rownames(y) |> as.numeric()]
-y <- merge(y, pn, by.x = "term", by.y = "parname")
-setorder(y, row_order)
-y <- y[, .(Parameter = parameter, Estimate = estimate, SE = std.error,
-           Statistic = statistic, p = p.value)]
-y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
-
-# save table in word
-ft <- flextable(y) |> autofit()
-ft <- bold(ft, bold = TRUE, part = "header")
-ESM <- ESM |>
-  body_add_par(paste0("Table S2. LMM females testo")) |>
-  body_add_par("") |>
-  body_add_flextable(ft)
-ESM <- ESM |> body_add_break(pos = "after")
-
-
-# model with interaction for plot
-m <- glmmTMB(
-  testo_log ~ species * date_doy + species * smi_z + (1 | year_) + (1 | ID),
-  family = gaussian(link = "identity"),
-  data = df
-)
-
-# plot(allEffects(m))
-# summary(m)
-
-# extract season effect from model for plot
-es <- effect("species:date_doy", m, xlevels = 1000) |>
-  data.frame() |>
-  setDT()
-
-# subset period with data
-dr <- dm[, .(first_data = min(date_doy), last_data = max(date_doy)),
-  by = species
-]
-es <- merge(es, dr, by = c("species"), all.x = TRUE)
-es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
-es <- es[in_range == TRUE]
-
-# plot for females
-p2 <-
-  ggplot() +
-  ggtitle("Females") +
-  geom_violin(data = df, aes(species, testo, fill = species), alpha = 0.7) +
-  geom_point(
-    data = e, aes(species, 10^fit, color = species),
-    position = position_dodge(0.5), size = 2
-  ) +
-  geom_linerange(
-    data = e, aes(
-      x = species, ymin = 10^upper,
-      ymax = 10^lower, color = species
-    ), linewidth = 0.5,
-    position = position_dodge(width = 0.5)
-  ) +
-  scale_fill_manual(values = c("steelblue4", "indianred3")) +
-  scale_color_manual(values = c("black", "black")) +
-  geom_text(
-    data = dfs, aes(species, Inf, label = sample_size), vjust = 1, size = ls
-  ) +
-  scale_y_log10(
-    limits = c(0.01, 350),
-    breaks = c(0.01, 0.1, 1, 10, 100),
-    labels = c(0.01, 0.1, 1, 10, 100)
-  ) +
-  annotation_logticks(sides = "l") +
-  scale_x_discrete(
-    labels = c("PESA" = "Pectoral sandpiper", "REPH" = "Red phalarope")
-  ) +
-  theme_classic(base_size = bs) +
-  theme(
-    legend.position = "none",
-    plot.title = element_text(hjust = 0.5, size = bs, face = "bold")
-  ) +
-  ylab("") +
-  xlab("Species")
-
-
-# effect of season
-p4 <-
-  ggplot() +
-  geom_point(
-    data = df, aes(date_doy, testo, color = species), size = 0.5, alpha = 0.5
-  ) +
-  geom_line(
-    data = es, aes(y = 10^fit, x = date_doy, color = species), size = 0.8
-  ) +
-  geom_ribbon(data = es, aes(
-    y = 10^fit, x = date_doy,
-    fill = species, ymin = 10^lower, ymax = 10^upper
-  ), alpha = 0.2) +
-  scale_color_manual(values = c("steelblue4", "indianred3")) +
-  scale_fill_manual(values = c("steelblue4", "indianred3")) +
-  scale_y_log10(
-    limits = c(0.001, 350),
-    breaks = c(0.001, 0.01, 0.1, 1, 10, 100),
-    labels = c(0.001, 0.01, 0.1, 1, 10, 100)
-  ) +
-  annotation_logticks(sides = "l") +
-  scale_x_continuous(limits = c(140, 206), expand = expansion(add = c(0, 0))) +
-  theme_classic(base_size = bs) +
-  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
-  ylab("") +
-  xlab("Day of the year")
-
-# effect of smi_z
-es <- effect("species:smi_z", m, xlevels = 1000) |>
-  data.frame() |>
-  setDT()
-
-# subset period with data
-dr <- dm[, .(
-  first_data = min(smi_z, na.rm = TRUE),
-  last_data = max(smi_z, na.rm = TRUE)
-),
-by = species
-]
-es <- merge(es, dr, by = c("species"), all.x = TRUE)
-es[, in_range := smi_z %between% c(first_data, last_data), by = 1:nrow(es)]
-es <- es[in_range == TRUE]
-
-p6 <-
-  ggplot() +
-  geom_point(
-    data = df[!is.na(smi_z)], 
-    aes(smi_z, testo, color = species), size = 0.5, alpha = 0.5
-  ) +
-  geom_line(
-    data = es, aes(y = 10^fit, x = smi_z, color = species), size = 0.8
-  ) +
-  geom_ribbon(
-    data = es, aes(
-      y = 10^fit, x = smi_z, fill = species,
-      ymin = 10^lower, ymax = 10^upper
-    ), alpha = 0.2
-  ) +
-  scale_color_manual(values = c("steelblue4", "indianred3")) +
-  scale_fill_manual(values = c("steelblue4", "indianred3")) +
-  scale_y_log10(
-    limits = c(0.001, 350),
-    breaks = c(0.001, 0.01, 0.1, 1, 10, 100),
-    labels = c(0.001, 0.01, 0.1, 1, 10, 100)
-  ) +
-  annotation_logticks(sides = "l") +
-  scale_x_continuous(
-    limits = c(-4.5, 4.5), expand = expansion(add = c(0, 0)),
-    breaks = c(-4, -2, 0, 2, 4)
-  ) +
-  theme_classic(base_size = bs) +
-  theme(legend.position = "none", plot.title = element_text(hjust = 0.5)) +
-  ylab("") +
-  xlab("Scaled mass index")
-
-# merge plots
-p1 + p2 + p3 + p4 + p5 + p6 +
-  plot_layout(ncol = 2) +
-  plot_annotation(tag_levels = "a")
-
-ggsave(
-  "./OUTPUTS/FIGURES/testo_by_sex_and_species.tiff",
-  plot = last_plot(), width = 177, height = 264,
-  units = c("mm"), dpi = "print"
-)
 
 
 #-------------------------------------------------------------------------------
@@ -1224,14 +894,14 @@ p1 <-
   geom_point(
     data = e[GnRH_sample == "Baseline"],
     aes(species_sample, 10^fit,
-      color = species
+        color = species
     ),
     position = position_nudge(x = -0.2), size = 2
   ) +
   geom_point(
     data = e[GnRH_sample == "GnRH-induced"],
     aes(species_sample, 10^fit,
-      color = species
+        color = species
     ),
     position = position_nudge(x = 0.2), size = 2
   ) +
@@ -1339,13 +1009,13 @@ p2 <-
   ) +
   geom_point(
     data = e[GnRH_sample == "Baseline"], aes(species_sample, 10^fit,
-      color = species
+                                             color = species
     ),
     position = position_nudge(x = -0.2), size = 2
   ) +
   geom_point(
     data = e[GnRH_sample == "GnRH-induced"], aes(species_sample, 10^fit,
-      color = species
+                                                 color = species
     ),
     position = position_nudge(x = 0.2), size = 2
   ) +
@@ -1417,8 +1087,8 @@ ggplot() +
   ggtitle("Males") +
   geom_boxjitter(
     data = ds, aes(species, haema,
-      fill = sex,
-      group = interaction(sex, species)
+                   fill = sex,
+                   group = interaction(sex, species)
     ),
     outlier.color = NA, jitter.shape = 21, jitter.color = NA,
     jitter.height = 0.0, jitter.width = 0.1, errorbar.draw = TRUE,
@@ -1875,7 +1545,7 @@ p8 <-
 p1 + p5 +
   p3 + p7 +
   p4 + p8 +
-
+  
   plot_layout(ncol = 2) +
   plot_annotation(tag_levels = "a")
 
