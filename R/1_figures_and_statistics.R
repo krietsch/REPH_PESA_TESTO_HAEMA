@@ -805,7 +805,34 @@ ESM <- ESM |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
 
+### percentage of effect change
 
+# back transform
+e[, `:=`(
+  fit_back   = 10^fit,
+  lower_back = 10^lower,
+  upper_back = 10^upper
+)]
+
+# percent change from baseline
+e[, `:=`(
+  perc_change = (fit_back - fit_back[GnRH_sample == "Baseline"]) /
+    fit_back[GnRH_sample == "Baseline"] * 100,
+  perc_change_low = (lower_back - fit_back[GnRH_sample == "Baseline"]) /
+    fit_back[GnRH_sample == "Baseline"] * 100,
+  perc_change_high = (upper_back - fit_back[GnRH_sample == "Baseline"]) /
+    fit_back[GnRH_sample == "Baseline"] * 100
+), by = species]
+
+# summary
+e[GnRH_sample == "GnRH-induced", .(
+  species,
+  perc_change,
+  perc_change_low,
+  perc_change_high
+)]
+
+# GnRH experiment plot for males
 p1 <-
   ggplot() +
   ggtitle("Males") +
@@ -922,6 +949,7 @@ ESM <- ESM |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
 
+# GnRH experiment plot for females
 p2 <-
   ggplot() +
   ggtitle("Females") +
