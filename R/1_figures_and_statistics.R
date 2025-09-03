@@ -97,10 +97,10 @@ pn <- fread(
   sexF:poly(date_doy, 2)2;             Sex x Day of the year (quadratic)
   speciesREPH:sexF:poly(date_doy, 2)1; Species x Sex x Day of the year (linear)
   speciesREPH:sexF:poly(date_doy, 2)2; Species x Sex x Day of the year (quadratic)
-  testo_log;                           Testosterone (logarithmic)
-  GnRH_sampleGnRH-induced;             GnRH induced
-  GnRHlow;                             Low GnRH concentration
-  speciesREPH:GnRH_sampleGnRH-induced; Species (red phalarope) x GnRH induced
+  testo_log;                           Testosterone concentration
+  GnRH_sampleGnRH-induced;             GnRH (induced)
+  GnRHlow;                             GnRH concentration (low)
+  speciesREPH:GnRH_sampleGnRH-induced; Species (red phalarope) x GnRH (induced)
   smi_z;                               Scaled mass index
   speciesREPH:smi_z;                   Species (red phalarope) x Scaled mass index
   sexF:smi_z;                          Sex (female) x Scaled mass index
@@ -430,29 +430,48 @@ ESM <- ESM |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
 
-
 # post-hoc tests
-tr <- emtrends(m, ~ species | sex, var = "date_doy")
-pairs(tr)  
-
-tr <- emtrends(m, ~ sex | species, var = "date_doy")
-pairs(tr)  
-
-emm <- emmeans(m, ~ species | sex)  
-pairs(emm, by = "sex")
-
-emm <- emmeans(m, ~ sex | species)  
-pairs(emm, by = "species")
-
-# Estimated marginal means at smi_z = 0
 emm <- emmeans(m, ~ sex * species)
-pairs(emm)
+y <- pairs(emm) |> tidy() |> data.table()
+y <- y[, .(
+  Contrast = contrast, Estimate = estimate, SE = std.error,
+  Statistic = statistic, p = adj.p.value
+)]
+y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
 
+# save table in word
+ft <- flextable(y) |> autofit()
+ft <- bold(ft, bold = TRUE, part = "header")
+ESM <- ESM |>
+  body_add_par(paste0("Table S2. LMM testo post-hoc")) |>
+  body_add_par("") |>
+  body_add_flextable(ft)
+ESM <- ESM |> body_add_break(pos = "after")
+
+# tr <- emtrends(m, ~ species | sex, var = "date_doy")
+# pairs(tr)  
+# 
+# tr <- emtrends(m, ~ sex | species, var = "date_doy")
+# pairs(tr)  
+# 
+# emm <- emmeans(m, ~ species | sex)  
+# pairs(emm, by = "sex")
+# 
+# emm <- emmeans(m, ~ sex | species)  
+# pairs(emm, by = "species")
 
 ### extract mean effect of sex and species
 e <- effect("species:sex", m) |>
   data.frame() |>
   setDT()
+
+# back transform
+e[, `:=`(
+  fit_back = 10^fit,
+  se_back = 10^se,
+  lower_back = 10^lower,
+  upper_back = 10^upper
+)]
 
 # plot for males
 p1 <-
@@ -809,7 +828,8 @@ ESM <- ESM |> body_add_break(pos = "after")
 
 # back transform
 e[, `:=`(
-  fit_back   = 10^fit,
+  fit_back = 10^fit,
+  se_back = 10^se,
   lower_back = 10^lower,
   upper_back = 10^upper
 )]
@@ -953,7 +973,8 @@ ESM <- ESM |> body_add_break(pos = "after")
 
 # back transform
 e[, `:=`(
-  fit_back   = 10^fit,
+  fit_back = 10^fit,
+  se_back = 10^se,
   lower_back = 10^lower,
   upper_back = 10^upper
 )]
@@ -1132,12 +1153,11 @@ plot(allEffects(m7))
 
 # reduce model
 m8 <- glmmTMB(
-  haema ~ sex * species * date_doy + testo_log + smi_z +
+  haema ~ species * sex * date_doy + testo_log + smi_z +
     (1 | year_) + (1 | ID),
   family = gaussian(link = "identity"),
   data = ds
 )
-
 anova(m7, m8, test = "Chisq")
 
 # model summary
@@ -1184,19 +1204,36 @@ y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
 ft <- flextable(y) |> autofit()
 ft <- bold(ft, bold = TRUE, part = "header")
 ESM <- ESM |>
-  body_add_par(paste0("Table S4. LMM haema")) |>
+  body_add_par(paste0("Table S5. LMM haema")) |>
   body_add_par("") |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
 
+# post-hoc tests
+emm <- emmeans(m, ~ sex * species)
+y <- pairs(emm) |> tidy() |> data.table()
+y <- y[, .(
+  Contrast = contrast, Estimate = estimate, SE = std.error,
+  Statistic = statistic, p = adj.p.value
+)]
+y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
+
+# save table in word
+ft <- flextable(y) |> autofit()
+ft <- bold(ft, bold = TRUE, part = "header")
+ESM <- ESM |>
+  body_add_par(paste0("Table S6. LMM haema post-hoc")) |>
+  body_add_par("") |>
+  body_add_flextable(ft)
+ESM <- ESM |> body_add_break(pos = "after")
 
 # post-hoc tests
 
-emm <- emmeans(m, ~ species | sex)  
-pairs(emm, by = "sex")
-
-emm <- emmeans(m, ~ sex | species)  
-pairs(emm, by = "species")
+# emm <- emmeans(m, ~ species | sex)  
+# pairs(emm, by = "sex")
+# 
+# emm <- emmeans(m, ~ sex | species)  
+# pairs(emm, by = "species")
 
 
 
@@ -1257,10 +1294,10 @@ p2 <-
   scale_y_continuous(limits = c(34, 73), expand = expansion(add = c(0, 0))) +
   scale_x_discrete(labels = c("M" = "Male", "F" = "Female")) +
   theme_classic(base_size = bs) +
-  theme(legend.position = "none", plot.title = element_text(
-    hjust = 0.5,
-    size = 10, face = "bold"
-  )) +
+  theme(
+    legend.position = "none", 
+    plot.title = element_text(hjust = 0.5, size = bs, face = "bold")
+  ) +
   ylab("") +
   xlab("Sex")
 
@@ -1516,7 +1553,7 @@ p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 +
   plot_annotation(tag_levels = "a")
 
 (p1 + p2) / (p3 + p4) / (p5 + p6) / (p7 + p8) +
-  plot_layout(heights = c(1.5, 1, 1, 1)) +  # give row 1 double space
+  plot_layout(heights = c(1.5, 1, 1, 1)) +
   plot_annotation(tag_levels = "a")
 
 
