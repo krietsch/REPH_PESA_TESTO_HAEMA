@@ -85,18 +85,18 @@ pn <- fread(
   "parname;                            parameter
   (Intercept);                         Intercept 
   speciesREPH;                         Species (red phalarope)
-  date_doy;                            Day of the year 
-  poly(date_doy, 2)1;                  Day of the year (linear)
-  poly(date_doy, 2)2;                  Day of the year (quadratic)
+  date_doy;                            Date 
+  poly(date_doy, 2)1;                  Date (linear)
+  poly(date_doy, 2)2;                  Date (quadratic)
   sexF;                                Sex (female)
   speciesREPH:sexF;                    Species x Sex
   sexF:date_doy;                       Sex:Day of the year
-  speciesREPH:poly(date_doy, 2)1;      Species x Day of the year (linear)
-  speciesREPH:poly(date_doy, 2)2;      Species x Day of the year (quadratic)
-  sexF:poly(date_doy, 2)1;             Sex x Day of the year (linear)
-  sexF:poly(date_doy, 2)2;             Sex x Day of the year (quadratic)
-  speciesREPH:sexF:poly(date_doy, 2)1; Species x Sex x Day of the year (linear)
-  speciesREPH:sexF:poly(date_doy, 2)2; Species x Sex x Day of the year (quadratic)
+  speciesREPH:poly(date_doy, 2)1;      Species x Date (linear)
+  speciesREPH:poly(date_doy, 2)2;      Species x Date (quadratic)
+  sexF:poly(date_doy, 2)1;             Sex x Date (linear)
+  sexF:poly(date_doy, 2)2;             Sex x Date (quadratic)
+  speciesREPH:sexF:poly(date_doy, 2)1; Species x Sex x Date (linear)
+  speciesREPH:sexF:poly(date_doy, 2)2; Species x Sex x Date (quadratic)
   testo_log;                           Testosterone concentration
   GnRH_sampleGnRH-induced;             GnRH (induced)
   GnRHlow;                             GnRH concentration (low)
@@ -131,26 +131,27 @@ dns <- dn[, .N, species]
 ds <- d[is.na(GnRH)]
 ds_gnrh <- d[!is.na(GnRH)]  # keep only GnRH samples
 
+# factor order
+dn[, species := factor(species, levels = c("REPH", "PESA"))]
+dns[, species := factor(species, levels = c("REPH", "PESA"))]
+ds[, species := factor(species, levels = c("REPH", "PESA"))]
+ds_gnrh[, species := factor(species, levels = c("REPH", "PESA"))]
+ds[, sex := factor(sex, levels = c("F", "M"))]
+ds_gnrh[, sex := factor(sex, levels = c("F", "M"))]
+
 # clutch initiation periods for years with data
 p1 <-
   ggplot(
-    dn, aes(x = initiation_y, y = factor(species), fill = factor(species))
+    dn, aes(x = initiation_y, y = species, fill = species)
   ) +
   geom_boxplot(alpha = 0.7) +
-  # add GnRH sample points
-  geom_point(
-    data = ds_gnrh,
-    aes(x = date_y, y = factor(species)),
-    shape = 23, size = 1, stroke = 1.2, fill = "black",
-    position = position_dodge(width = 0.75)
-  ) +
-  scale_fill_manual(values = c("steelblue4", "indianred3")) +
+  scale_fill_manual(values = c("indianred3", "steelblue4")) +
   # add sample size
   geom_text(
     data = dns,
     aes(
       x = as.Date("2100-07-20"),
-      y = factor(species), label = paste0("N = ", N)
+      y = species, label = paste0("N = ", N)
     ),
     inherit.aes = FALSE,
     size = ls
@@ -158,20 +159,21 @@ p1 <-
   scale_x_date(
     limits = as.Date(c("2100-05-20", "2100-07-25")),
     expand = expansion(add = c(0, 0)),
-    date_labels = "%b %d",
+    labels = function(x) rep("", length(x)),
     date_breaks = "7 days"
   ) +
   theme_classic(base_size = bs) +
   theme(
     legend.position = "none",
     plot.title = element_text(hjust = 0.5, size = bs, face = "bold"),
-    axis.title.x = element_text(size = 11)
+    axis.title.x = element_text(size = 11),
+    plot.margin = margin(t = 0, r = 0, b = 0, l = 0)
   ) +
   scale_y_discrete(labels = c(
-    "REPH" = "Red\nphalarope", "PESA" = "Pectoral\nsandpiper"
+    "REPH" = "Red phalarope", "PESA" = "Pectoral sandpiper"
   )) +
   ggtitle("Timing of clutch initiation") +
-  ylab("Species") +
+  ylab("") +
   xlab("")
 
 # sample size
@@ -181,17 +183,25 @@ du <- du[, .(N_ind = .N), .(species, sex)]
 dss <- merge(dss, du, by = c("species", "sex"))
 dss[, sample_size := paste0("N = ", N, " | ", N_ind)]
 
+# create male/female symbols
+sex_symbols <- data.table(
+  species = c("PESA", "PESA", "REPH", "REPH"),
+  date_y  = as.Date("2100-05-22"),    # all symbols at May 20
+  symbol  = c("\u2642", "\u2640", "\u2642", "\u2640"),  # ♂ and ♀
+  sex     = c("M", "F", "M", "F")
+)
+
 # plot timing of sampling
 p2 <-
-  ggplot(ds, aes(x = date_y, y = factor(species), fill = sex, color = species)) +
+  ggplot(ds, aes(x = date_y, y = species, fill = sex, color = species)) +
   geom_boxplot(alpha = 0.7, show.legend = TRUE) +
-  scale_color_manual(values = c("steelblue4", "indianred3")) +
-  scale_fill_manual(values = c("#7aa048", "#E69F00")) +
+  scale_color_manual(values = c("indianred3", "steelblue4")) +
+  scale_fill_manual(values = c("#E69F00", "#7aa048")) +
   new_scale_fill() +
   # add GnRH sample points
   geom_point(
     data = ds_gnrh,
-    aes(x = date_y, y = factor(species), fill = species),
+    aes(x = date_y, y = species, fill = species),
     shape = 23, size = 1, stroke = 1.2,
     position = position_dodge(width = 0.75)
   ) +
@@ -200,7 +210,7 @@ p2 <-
     data = dss,
     aes(
       x = as.Date("2100-07-20"),
-      y = factor(species),
+      y = species,
       group = sex,
       label = sample_size
     ),
@@ -208,7 +218,15 @@ p2 <-
     inherit.aes = FALSE,
     size = ls
   ) +
-  scale_fill_manual(values = c("steelblue4", "indianred3")) +
+  # male/female symbols
+  geom_text(
+    data = sex_symbols,
+    aes(x = date_y, y = species, group = sex, label = symbol),
+    position = position_dodge(width = 0.75),
+    inherit.aes = FALSE,
+    size = 5
+  ) +
+  scale_fill_manual(values = c("indianred3", "steelblue4")) +
   scale_x_date(
     limits = as.Date(c("2100-05-20", "2100-07-25")),
     expand = expansion(add = c(0, 0)),
@@ -219,13 +237,14 @@ p2 <-
   theme(
     legend.position = "none",
     plot.title = element_text(hjust = 0.5, size = bs, face = "bold"),
-    axis.title.x = element_text(size = 11)
+    axis.title.x = element_text(size = 11),
+    plot.margin = margin(t = 0, r = 0, b = 0, l = 0)
   ) +
   scale_y_discrete(labels = c(
-    "REPH" = "Red\nphalarope", "PESA" = "Pectoral\nsandpiper"
+    "REPH" = "Red phalarope", "PESA" = "Pectoral sandpiper"
   )) +
-  ggtitle("Timing of captures") +
-  ylab("Species") +
+  ggtitle("Timing of sampling") +
+  ylab("") +
   xlab("Date")
 
 
@@ -236,12 +255,15 @@ dt <- data.table(
   x = 1:8,
   y = 1:8,
   species = rep(c("Pectoral Sandpiper", "Red Phalarope"), 4),
-  sex = rep(c("Male", "Female"), each = 4)
+  sex = rep(c("Female", "Male"), each = 4)
 )
 
 # order factor
 dt[, species := factor(species, levels = c(
-  "Red Phalarope", "Pectoral Sandpiper"
+  "Pectoral Sandpiper", "Red Phalarope"
+))]
+dt[, sex := factor(sex, levels = c(
+  "Male", "Female"
 ))]
 
 # legend for species
@@ -288,9 +310,12 @@ legend <- plot_grid(leg_species, leg_sex, leg_gnrh,
 )
 
 # combine plots
-p1 / p2 + legend +
-  plot_layout(heights = c(1, 2, 1)) +
-  plot_annotation(tag_levels = list(c("a", "b"), ""))
+p1 + plot_spacer() + p2 + legend +
+  plot_layout(heights = c(1, -0.5, 2, 1)) +
+  plot_annotation(
+    tag_levels = list(c("a", "b"), ""),
+    theme = theme(plot.margin = margin(t = 0, r = 2, b = -5, l = 2))
+  ) 
 
 # save plot
 ggsave(
@@ -447,18 +472,6 @@ ESM <- ESM |>
   body_add_par("") |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
-
-# tr <- emtrends(m, ~ species | sex, var = "date_doy")
-# pairs(tr)  
-# 
-# tr <- emtrends(m, ~ sex | species, var = "date_doy")
-# pairs(tr)  
-# 
-# emm <- emmeans(m, ~ species | sex)  
-# pairs(emm, by = "sex")
-# 
-# emm <- emmeans(m, ~ sex | species)  
-# pairs(emm, by = "species")
 
 ### extract mean effect of sex and species
 e <- effect("species:sex", m) |>
@@ -1227,20 +1240,13 @@ ESM <- ESM |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
 
-# post-hoc tests
-
-# emm <- emmeans(m, ~ species | sex)  
-# pairs(emm, by = "sex")
-# 
-# emm <- emmeans(m, ~ sex | species)  
-# pairs(emm, by = "species")
-
-
-
 ### extract mean effect of sex and species
 e <- effect("species:sex", m) |>
   data.frame() |>
   setDT()
+
+# median
+ds[, median(haema), .(species, sex)]
 
 # species comparison
 p1 <-
