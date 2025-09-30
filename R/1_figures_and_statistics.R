@@ -52,7 +52,7 @@ d[, testo := testo / 1000]
 d[, testo_log := log10(testo)]
 
 # bleeding time
-d[, diff_caught_bled := difftime(bled_time, caught_time, units = 'mins') |>
+d[, diff_caught_bled := difftime(bled_time, caught_time, units = "mins") |>
     as.numeric()]
 
 # data as Julian
@@ -98,12 +98,16 @@ pn <- fread(
   speciesREPH:sexF:poly(date_doy, 2)1; Species x Sex x Date (linear)
   speciesREPH:sexF:poly(date_doy, 2)2; Species x Sex x Date (quadratic)
   testo_log;                           Testosterone concentration
+  speciesREPH:testo_log;               Species x Testosterone
+  sexF:testo_log;                      Sex x Testosterone
+  speciesREPH:sexF:testo_log;          Species x Sex x Testosterone
   GnRH_sampleGnRH-induced;             GnRH (induced)
   GnRHlow;                             GnRH concentration (low)
-  speciesREPH:GnRH_sampleGnRH-induced; Species (red phalarope) x GnRH (induced)
+  speciesREPH:GnRH_sampleGnRH-induced; Species x GnRH
   smi_z;                               Scaled mass index
-  speciesREPH:smi_z;                   Species (red phalarope) x Scaled mass index
-  sexF:smi_z;                          Sex (female) x Scaled mass index
+  speciesREPH:smi_z;                   Species x Scaled mass index
+  sexF:smi_z;                          Sex x Scaled mass index
+  speciesREPH:sexF:smi_z;              Species x Sex x Scaled mass index
   sd__(Intercept);                     Random intercept
   sd__(Intercept)_year_;               Random intercept (year)
   sd__(Intercept)_ID;                  Random intercept (ID)
@@ -305,8 +309,8 @@ leg_sex <- get_legend(p_sex)
 leg_gnrh <- get_legend(p_gnrh)
 
 # combine legends
-legend <- plot_grid(leg_species, leg_sex, leg_gnrh,
-                    nrow = 1, align = "h"
+legend <- plot_grid(
+  leg_species, leg_sex, leg_gnrh, nrow = 1, align = "h"
 )
 
 # combine plots
@@ -315,7 +319,7 @@ p1 + plot_spacer() + p2 + legend +
   plot_annotation(
     tag_levels = list(c("a", "b"), ""),
     theme = theme(plot.margin = margin(t = 0, r = 2, b = -5, l = 2))
-  ) 
+  )
 
 # save plot
 ggsave(
@@ -333,7 +337,7 @@ dID <- unique(d[, wing_mean_ID := mean(wing, na.rm = TRUE), by = ID], by = "ID")
 
 # mean wing length by species and sex
 dPop <- dID[, .(wing_mean_pop = mean(wing_mean_ID, na.rm = TRUE)),
-            by = .(species, sex)
+  by = .(species, sex)
 ]
 
 # slope for each category
@@ -386,6 +390,33 @@ m1 <- glmmTMB(
 summary(m1)
 plot(allEffects(m1))
 
+### create clean summary table
+y <- tidy(m1) |> data.table()
+x <- r2(m1, tolerance = 1e-10) |> data.table()
+
+setnames(x, c("estimate"))
+y[term == "sd__(Intercept)", term := paste0(term, "_", group)]
+x[, estimate := as.numeric(estimate)]
+x[, term := c("r2cond", "r2marg")]
+y <- rbindlist(list(y, x), use.names = TRUE, fill = TRUE)
+y[, row_order := rownames(y) |> as.numeric()]
+y <- merge(y, pn, by.x = "term", by.y = "parname")
+setorder(y, row_order)
+y <- y[, .(
+  Parameter = parameter, Estimate = estimate, SE = std.error,
+  Statistic = statistic, p = p.value
+)]
+y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
+
+# save table in word
+ft <- flextable(y) |> autofit()
+ft <- bold(ft, bold = TRUE, part = "header")
+ESM <- ESM |>
+  body_add_par(paste0("Table S1. LMM testo full")) |>
+  body_add_par("") |>
+  body_add_flextable(ft)
+ESM <- ESM |> body_add_break(pos = "after")
+
 # reduce model
 m2 <- update(m1, . ~ . - species:sex:smi_z)
 anova(m1, m2, test = "Chisq")
@@ -424,7 +455,7 @@ summary(m)
 plot(allEffects(m))
 
 # check mpdel assumptions
-res <-simulateResiduals(m, plot = T)
+res <- simulateResiduals(m, plot = TRUE)
 testDispersion(res)
 
 
@@ -450,7 +481,7 @@ y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
 ft <- flextable(y) |> autofit()
 ft <- bold(ft, bold = TRUE, part = "header")
 ESM <- ESM |>
-  body_add_par(paste0("Table S1. LMM testo")) |>
+  body_add_par(paste0("Table S2. LMM testo final")) |>
   body_add_par("") |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
@@ -468,7 +499,7 @@ y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
 ft <- flextable(y) |> autofit()
 ft <- bold(ft, bold = TRUE, part = "header")
 ESM <- ESM |>
-  body_add_par(paste0("Table S2. LMM testo post-hoc")) |>
+  body_add_par(paste0("Table S3. LMM testo post-hoc")) |>
   body_add_par("") |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
@@ -568,14 +599,16 @@ p2 <-
 
 
 ### effect of season on testo
-es <- effect("species:sex:poly(date_doy, 2)", m, 
-             xlevels = list(date_doy = 1000)) |> 
-  data.frame() |> 
+es <- effect(
+  "species:sex:poly(date_doy, 2)", m,
+  xlevels = list(date_doy = 1000)
+) |>
+  data.frame() |>
   setDT()
 
 # subset period with data
 dr <- ds[, .(first_data = min(date_doy), last_data = max(date_doy)),
-         by = .(species, sex)
+  by = .(species, sex)
 ]
 es <- merge(es, dr, by = c("species", "sex"), all.x = TRUE)
 es[, in_range := date_doy %between% c(first_data, last_data), by = 1:nrow(es)]
@@ -687,11 +720,11 @@ es <- es[in_range == TRUE]
 p5 <-
   ggplot() +
   geom_point(
-    data = ds[!is.na(smi_z) & sex == "M"], 
+    data = ds[!is.na(smi_z) & sex == "M"],
     aes(smi_z, testo, color = species), size = 0.5, alpha = 0.5
   ) +
   geom_line(
-    data = es[sex == "M"], aes(y = 10^emmean, x = smi_z, color = species), 
+    data = es[sex == "M"], aes(y = 10^emmean, x = smi_z, color = species),
     linewidth = 0.8
   ) +
   geom_ribbon(data = es[sex == "M"], aes(
@@ -719,11 +752,11 @@ p5 <-
 p6 <-
   ggplot() +
   geom_point(
-    data = ds[!is.na(smi_z) & sex == "F"], 
+    data = ds[!is.na(smi_z) & sex == "F"],
     aes(smi_z, testo, color = species), size = 0.5, alpha = 0.5
   ) +
   geom_line(
-    data = es[sex == "F"], aes(y = 10^emmean, x = smi_z, color = species), 
+    data = es[sex == "F"], aes(y = 10^emmean, x = smi_z, color = species),
     linewidth = 0.8
   ) +
   geom_ribbon(data = es[sex == "F"], aes(
@@ -832,7 +865,7 @@ y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
 ft <- flextable(y) |> autofit()
 ft <- bold(ft, bold = TRUE, part = "header")
 ESM <- ESM |>
-  body_add_par(paste0("Table S3. LMM males GnRH")) |>
+  body_add_par(paste0("Table S4. LMM males GnRH")) |>
   body_add_par("") |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
@@ -977,7 +1010,7 @@ y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
 ft <- flextable(y) |> autofit()
 ft <- bold(ft, bold = TRUE, part = "header")
 ESM <- ESM |>
-  body_add_par(paste0("Table S4. LMM females GnRH")) |>
+  body_add_par(paste0("Table S5. LMM females GnRH")) |>
   body_add_par("") |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
@@ -1105,7 +1138,7 @@ dss[, sample_size := paste0("N = ", N, " | ", N_ind)]
 
 # model
 m1 <- glmmTMB(
-  haema ~ sex * species * poly(date_doy, 2) + sex * species * testo_log +
+  haema ~ species * sex * poly(date_doy, 2) + species * sex * testo_log +
     sex * species * smi_z +
     (1 | year_) + (1 | ID),
   family = gaussian(link = "identity"),
@@ -1116,8 +1149,36 @@ m1 <- glmmTMB(
 summary(m1)
 plot(allEffects(m1))
 
+### create clean summary table
+y <- tidy(m1) |> data.table()
+x <- r2(m1, tolerance = 1e-10) |> data.table()
+
+setnames(x, c("estimate"))
+y[term == "sd__(Intercept)", term := paste0(term, "_", group)]
+x[, estimate := as.numeric(estimate)]
+x[, term := c("r2cond", "r2marg")]
+y <- rbindlist(list(y, x), use.names = TRUE, fill = TRUE)
+y[, row_order := rownames(y) |> as.numeric()]
+y <- merge(y, pn, by.x = "term", by.y = "parname")
+setorder(y, row_order)
+y <- y[, .(
+  Parameter = parameter, Estimate = estimate, SE = std.error,
+  Statistic = statistic, p = p.value
+)]
+y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
+
+# save table in word
+ft <- flextable(y) |> autofit()
+ft <- bold(ft, bold = TRUE, part = "header")
+ESM <- ESM |>
+  body_add_par(paste0("Table S6. LMM haema full")) |>
+  body_add_par("") |>
+  body_add_flextable(ft)
+ESM <- ESM |> body_add_break(pos = "after")
+
+
 # reduce model
-m2 <- update(m1, . ~ . - sex:species:testo_log)
+m2 <- update(m1, . ~ . - species:sex:testo_log)
 anova(m1, m2, test = "Chisq")
 
 # model summary
@@ -1125,7 +1186,7 @@ summary(m2)
 plot(allEffects(m2))
 
 # reduce model
-m3 <- update(m2, . ~ . - sex:species:smi_z)
+m3 <- update(m2, . ~ . - species:sex:smi_z)
 anova(m2, m3, test = "Chisq")
 
 # model summary
@@ -1217,7 +1278,7 @@ y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
 ft <- flextable(y) |> autofit()
 ft <- bold(ft, bold = TRUE, part = "header")
 ESM <- ESM |>
-  body_add_par(paste0("Table S5. LMM haema")) |>
+  body_add_par(paste0("Table S7. LMM haema final")) |>
   body_add_par("") |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
@@ -1235,7 +1296,7 @@ y <- y %>% mutate_if(is.numeric, ~ round(., 3)) # round all numeric columns
 ft <- flextable(y) |> autofit()
 ft <- bold(ft, bold = TRUE, part = "header")
 ESM <- ESM |>
-  body_add_par(paste0("Table S6. LMM haema post-hoc")) |>
+  body_add_par(paste0("Table S8. LMM haema post-hoc")) |>
   body_add_par("") |>
   body_add_flextable(ft)
 ESM <- ESM |> body_add_break(pos = "after")
