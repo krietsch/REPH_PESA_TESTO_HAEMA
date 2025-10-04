@@ -68,7 +68,7 @@ All data used in this analysis (**click on the black arrow** to see column defin
    - [`1_figures_and_statistic.R`](https://github.com/krietsch/testosterone_analysis/blob/master/R/1_R_script_data_anaylsis.R). 
   The main script to reproduce all figures and statistic of this project. It contains a detailed commented workflow and 
   follows the order in the manuscript.
-  ([View compiled](https://raw.githack.com/krietsch/testosterone_analysis/master/OUTPUTS/R_COMPILED/7_figures_and_statistic.html "html"))
+  ([View compiled](https://raw.githack.com/krietsch/testosterone_analysis/master/OUTPUTS/R_COMPILED/1_figures_and_statistics.html "html"))
   
   - [`0_extract_data_from_database.R`](https://github.com/krietsch/REPH_PAIRS/blob/master/R/0_extract_data_from_database.R) 
   Script used to extract the data from our database. This script can only be run with access 
