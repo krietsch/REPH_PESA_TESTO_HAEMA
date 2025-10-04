@@ -44,7 +44,6 @@ All data used in this analysis (**click on the black arrow** to see column defin
 
 </details>
 
-<p>&nbsp;</p>
 
 <details>
   <summary> <b><code>REPH_PESA_nests</code></b> – A csv table of all nest data used in this manuscript </summary>
