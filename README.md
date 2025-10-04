@@ -23,7 +23,7 @@ When using the data or code please cite the associated manuscript (in review) an
 All data used in this analysis (**click on the black arrow** to see column definitions). Extracted from our database (see below).
 
 <details>
-  <summary> <b><code>REPH_PESA_testo_haema</code></b> – A csv table of all data used in this manuscript </summary>
+  <summary> <b><code>REPH_PESA_testo_haema</code></b> – A csv table of all testosterone and haematocrit data used in this manuscript </summary>
   
   Columns are defined as:
 
@@ -41,6 +41,24 @@ All data used in this analysis (**click on the black arrow** to see column defin
   12. `volume`: Blood plasma volume (in μl)
   13. `GnRH`: If GnRH was injected indicates the dose (low or high)
   14. `haema`: Heamatocrit level, as percentage of red blood cells in the blood sample
+
+</details>
+
+<p>&nbsp;</p>
+
+<details>
+  <summary> <b><code>REPH_PESA_nests</code></b> – A csv table of all nest data used in this manuscript </summary>
+  
+  Columns are defined as:
+
+  1. `species`: Species abbreviation (REPH = red pahalarope, PESA = pectoral sandpiper)
+  2. `year_`: Year in which the data was collected
+  3. `nest`: Unique identifier for each nest
+  4. `male_id`: Male metal band id
+  5. `female_id`: Female metal band id
+  6. `lat`: nest location latitude (decimal degrees)
+  7. `lon`: nest location longitude (decimal degrees)
+  8. `initiation`: Estimated date and time the first egg was laid (AKDT)
 
 </details>
 
