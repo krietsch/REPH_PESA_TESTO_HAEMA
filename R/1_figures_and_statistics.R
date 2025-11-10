@@ -38,10 +38,10 @@ dn <- fread("./DATA/REPH_PESA_nests.csv", yaml = TRUE)
 
 # Lines to run to create html output
 opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
-rmarkdown::render(
-  "./R/1_figures_and_statistics.R",
-  output_dir = "./OUTPUTS/R_COMPILED"
-)
+# rmarkdown::render(
+#   "./R/1_figures_and_statistics.R",
+#   output_dir = "./OUTPUTS/R_COMPILED"
+# )
 
 #-------------------------------------------------------------------------------
 #' # Prepare data for analysis
@@ -122,7 +122,7 @@ bs <- 12 # base size
 ls <- 3 # labels
 
 #-------------------------------------------------------------------------------
-#' # Sampling period in relation to breeding
+#' # Sampling period in relation to breeding - Figure 1
 #-------------------------------------------------------------------------------
 
 # years with data by species
@@ -363,7 +363,7 @@ ggplot(data = d) +
 d[, .(min(smi_z, na.rm = TRUE), max(smi_z, na.rm = TRUE))]
 
 #-------------------------------------------------------------------------------
-#' # Testosterone between species and sexes comparison
+#' # Testosterone between species and sexes comparison - Figure 2
 #-------------------------------------------------------------------------------
 
 # exclude GnRH induced samples
@@ -793,7 +793,7 @@ ggsave(
 )
 
 #-------------------------------------------------------------------------------
-#' # GnRH experiment
+#' # GnRH experiment - Figure 3
 #-------------------------------------------------------------------------------
 
 # subset birds with GnRH
@@ -1118,7 +1118,7 @@ ggsave(
 )
 
 #-------------------------------------------------------------------------------
-#' # Testosterone influence on hematocrit
+#' # Testosterone influence on hematocrit - Figure 4
 #-------------------------------------------------------------------------------
 
 # exclude GnRH induced samples
